@@ -1,0 +1,14 @@
+app [main!] {
+    pf: platform "https://github.com/growthagent/basic-cli/releases/download/0.25.0/2Qj7ggHJdVV9jAspIjvskp_cUWvAyh7B9I-Ma_sY4zk.tar.br",
+}
+
+import pf.Stdout
+import pf.Env
+import pf.Sleep
+
+main! = |_args|
+    # Small sleep to ensure tests don't all complete instantly
+    Sleep.millis!(100)
+    when Env.var!("WORKER_INDEX") is
+        Ok(idx) -> Stdout.line!("WORKER_INDEX=$(idx)")
+        Err(_) -> Stdout.line!("WORKER_INDEX=unset")

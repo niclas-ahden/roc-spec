@@ -1,0 +1,447 @@
+# LLM Docs
+
+## Compact Docs
+
+Copy just this section if you want to keep your context small.
+If you want all docs, check the section `Full Docs per Module` below.
+
+Assert.eq : val, val -> Result {} [NotEq Str] where val implements Inspect & Eq
+Assert.not_eq : val, val -> Result {} [IsEq Str] where val implements Inspect & Eq
+Assert.ok : Result a err -> Result a [NotOk Str] where err implements Inspect
+Assert.err : Result a e -> Result e [NotErr Str] where a implements Inspect
+Assert.just : [ Just val, Nothing ] -> Result val [NotJust Str]
+Assert.nothing : [ Just val, Nothing ] -> Result {} [NotNothing Str] where val implements Inspect
+Assert.true : Bool -> Result {} [NotTrue Str]
+Assert.false : Bool -> Result {} [NotFalse Str]
+Assert.contains : List a, a -> Result {} [DoesNotContain Str] where a implements Inspect & Eq
+Assert.not_contains : List a, a -> Result {} [DoesContain Str] where a implements Inspect & Eq
+Assert.gt : Num a, Num a -> Result {} [NotGt Str] where a implements Inspect
+Assert.gte : Num a, Num a -> Result {} [NotGte Str] where a implements Inspect
+Assert.lt : Num a, Num a -> Result {} [NotLt Str] where a implements Inspect
+Assert.lte : Num a, Num a -> Result {} [NotLte Str] where a implements Inspect
+Spec.run! : Str, Config err => Result (List TestResult)
+Spec.run_filtered! : Str, Config err, Str => Result (List TestResult)
+Pg.begin! : (db, Str => Result {} err), db => Result {} err
+Pg.rollback! : (db, Str => Result {} err), db => Result {} err
+Pg.commit! : (db, Str => Result {} err), db => Result {} err
+Pg.with_rollback! : (db, Str => Result {} err), db, (db => Result a err) => Result a err
+Pg.truncate! : (db, Str => Result {} err), db, List Str => Result {} err
+Pg.with_truncate! : (db, Str => Result {} err), db, List Str, (db => Result a err) => Result a err
+Wait.until! : ({} => Result {} err), { max_attempts : U64, delay_ms : U64 } => Result {} [ConditionNotMet err]
+Wait.for_server! : Str, ServerConfig => Result {} [ServerNotReady Str]
+TestEnvironment.start! : { count : U16, start! : U16 => Result {} err } => Result {} err
+TestEnvironment.command! : , Str => Result {}
+TestEnvironment.fetch! : Str => Result Str
+TestEnvironment.worker_url! : {} => Result Str
+TestEnvironment.worker_db! : {} => Result
+
+## Full Docs per Module
+### Assert
+
+eq : val, val -> Result {} [NotEq Str] where val implements Inspect & Eq
+
+Description:
+Assert two values are equal.
+
+```roc
+Assert.eq(actual, expected)?
+Assert.eq(actual, expected) ? MyTag
+```
+
+not_eq : val, val -> Result {} [IsEq Str] where val implements Inspect & Eq
+
+Description:
+Assert two values are not equal.
+
+```roc
+Assert.not_eq(actual, unexpected)?
+Assert.not_eq(actual, unexpected) ? MyTag
+```
+
+ok : Result a err -> Result a [NotOk Str] where err implements Inspect
+
+Description:
+Assert a Result is Ok, returning the inner value.
+
+```roc
+value = Assert.ok(result)?
+value = Assert.ok(result) ? MyTag
+```
+
+err : Result a e -> Result e [NotErr Str] where a implements Inspect
+
+Description:
+Assert a Result is Err, returning the error.
+
+```roc
+error = Assert.err(result)?
+error = Assert.err(result) ? MyTag
+```
+
+just : [ Just val, Nothing ] -> Result val [NotJust Str]
+
+Description:
+Assert a Maybe is Just, returning the inner value.
+
+```roc
+value = Assert.just(maybe)?
+value = Assert.just(maybe) ? MyTag
+```
+
+nothing : [ Just val, Nothing ] -> Result {} [NotNothing Str] where val implements Inspect
+
+Description:
+Assert a Maybe is Nothing.
+
+```roc
+Assert.nothing(maybe)?
+Assert.nothing(maybe) ? MyTag
+```
+
+true : Bool -> Result {} [NotTrue Str]
+
+Description:
+Assert a Bool is true.
+
+```roc
+Assert.true(condition)?
+Assert.true(condition) ? MyTag
+```
+
+false : Bool -> Result {} [NotFalse Str]
+
+Description:
+Assert a Bool is false.
+
+```roc
+Assert.false(condition)?
+Assert.false(condition) ? MyTag
+```
+
+contains : List a, a -> Result {} [DoesNotContain Str] where a implements Inspect & Eq
+
+Description:
+Assert a List contains an element.
+
+```roc
+Assert.contains(list, element)?
+Assert.contains(list, element) ? MyTag
+```
+
+not_contains : List a, a -> Result {} [DoesContain Str] where a implements Inspect & Eq
+
+Description:
+Assert a List does not contain an element.
+
+```roc
+Assert.not_contains(list, element)?
+Assert.not_contains(list, element) ? MyTag
+```
+
+gt : Num a, Num a -> Result {} [NotGt Str] where a implements Inspect
+
+Description:
+Assert actual is greater than threshold.
+
+```roc
+Assert.gt(count, 0)?
+Assert.gt(count, 0) ? MyTag
+```
+
+gte : Num a, Num a -> Result {} [NotGte Str] where a implements Inspect
+
+Description:
+Assert actual is greater than or equal to threshold.
+
+```roc
+Assert.gte(count, 1)?
+Assert.gte(count, 1) ? MyTag
+```
+
+lt : Num a, Num a -> Result {} [NotLt Str] where a implements Inspect
+
+Description:
+Assert actual is less than threshold.
+
+```roc
+Assert.lt(errors, 10)?
+Assert.lt(errors, 10) ? MyTag
+```
+
+lte : Num a, Num a -> Result {} [NotLte Str] where a implements Inspect
+
+Description:
+Assert actual is less than or equal to threshold.
+
+```roc
+Assert.lte(errors, 5)?
+Assert.lte(errors, 5) ? MyTag
+```
+
+### Spec
+
+Description:
+Result of a single test.
+
+- `name`: Test name derived from filename (e.g., `test_login` from `test_login.roc`)
+- `passed`: Whether the test exited with code 0
+- `duration_ms`: How long the test took to run
+- `output`: Captured stdout from the test process
+- `error`: Captured stderr from the test process
+
+Description:
+Configuration for parallel test execution.
+
+- `max_workers`: Maximum number of tests to run concurrently
+- `worker_envs`: Function that returns environment variables for a given worker index
+- `before_each!`: Hook called before each test (e.g., to truncate database)
+- `per_test_timeout_ms`: Timeout for each individual test in milliseconds
+- `quiet`: When true, only show stdout/stderr for failed tests; when false, show for all tests
+
+Example:
+```roc
+{
+    max_workers: 32,
+    worker_envs: |index| [
+        ("APP_PORT", Num.to_str(8000 + index)),
+        ("DATABASE_NAME", "test_$(Num.to_str(index))"),
+    ],
+    before_each!: |index| Pg.truncate!(query!, db, []),
+    per_test_timeout_ms: 120_000,
+    quiet: Bool.false,
+}
+```
+
+run! : Str, Config err => Result (List TestResult)
+
+Description:
+Run all `test_*.roc` files in the given directory and subdirectories in parallel.
+
+Returns a list of test results, one for each test file discovered and run.
+See `run_filtered!` to run a subset of tests by name pattern.
+
+run_filtered! : Str, Config err, Str => Result (List TestResult)
+
+Description:
+Run tests matching a pattern.
+
+The pattern is a simple substring match on the filename:
+- `""` (empty string): run all tests
+- `"login"`: matches `test_login.roc`, `test_login_flow.roc`, etc.
+- `"api"`: matches `test_api_auth.roc`, `test_user_api.roc`, etc.
+
+Recursively searches all subdirectories for test files.
+
+### Pg
+
+begin! : (db, Str => Result {} err), db => Result {} err
+
+Description:
+Begin a database transaction.
+
+rollback! : (db, Str => Result {} err), db => Result {} err
+
+Description:
+Rollback a database transaction.
+
+commit! : (db, Str => Result {} err), db => Result {} err
+
+Description:
+Commit a database transaction.
+
+with_rollback! : (db, Str => Result {} err), db, (db => Result a err) => Result a err
+
+Description:
+Run a function inside a transaction that always rolls back.
+Useful for tests that shouldn't persist data.
+
+```roc
+Pg.with_rollback!(query!, client, |client|
+    # test code that modifies db
+    Ok(result)
+)
+```
+
+truncate! : (db, Str => Result {} err), db, List Str => Result {} err
+
+Description:
+Truncate all tables in the database except for excluded ones.
+Useful for resetting database state between tests.
+
+```roc
+Pg.truncate!(query!, client, ["schema_migrations"])?
+```
+
+This will:
+- Find all tables in the 'public' schema
+- Exclude tables in the provided list
+- TRUNCATE them with RESTART IDENTITY CASCADE
+
+with_truncate! : (db, Str => Result {} err), db, List Str, (db => Result a err) => Result a err
+
+Description:
+Run a test with a truncated database.
+Useful for HTTP integration tests where rollback doesn't work
+(because the app server has a separate DB connection).
+
+```roc
+Pg.with_truncate!(query!, client, ["schema_migrations"], |client|
+    # insert test data
+    # run test
+    Ok(result)
+)
+```
+
+### Wait
+
+until! : ({} => Result {} err), { max_attempts : U64, delay_ms : U64 } => Result {} [ConditionNotMet err]
+
+Description:
+Retry a condition until it succeeds or max attempts reached.
+
+```roc
+Wait.until!(|| check_something!(), { max_attempts: 10, delay_ms: 100 }) ? ConditionNotMet
+```
+
+Description:
+Configuration for waiting on a server.
+
+- `max_attempts`: Maximum number of polling attempts
+- `delay_ms`: Delay between attempts in milliseconds
+- `request_timeout_ms`: Timeout for each HTTP request
+- `headers`: HTTP headers to send (e.g., Host header for reverse proxies)
+
+for_server! : Str, ServerConfig => Result {} [ServerNotReady Str]
+
+Description:
+Wait for an HTTP server to be ready by polling the given URL.
+
+```roc
+# Simple usage (2.5 second timeout)
+Wait.for_server!("http://localhost:8000/health", {
+    max_attempts: 50,
+    delay_ms: 50,
+    request_timeout_ms: 5000,
+    headers: [],
+})?
+
+# With custom Host header for reverse proxy (60 second timeout)
+Wait.for_server!("http://127.0.0.1:9100/", {
+    max_attempts: 300,
+    delay_ms: 200,
+    request_timeout_ms: 5000,
+    headers: [("Host", "myapp.localhost:9100")],
+})?
+```
+
+### TestEnvironment
+
+start! : { count : U16, start! : U16 => Result {} err } => Result {} err
+
+Description:
+Start N isolated test environments by calling the start! callback for each index.
+
+The callback should spawn any processes needed (app server, reverse proxy, etc.)
+and wait until they're healthy before returning. Use `Cmd.spawn_grouped!` to ensure
+processes are automatically cleaned up when the test runner exits.
+
+```roc
+TestEnvironment.start!({
+    count: 32,
+    start!: |index|
+        port = 8000 + index
+        Cmd.new("./server") |> Cmd.env("PORT", Num.to_str(port)) |> Cmd.spawn_grouped!()?
+        Wait.for_server!("http://localhost:$(Num.to_str(port))/health")
+})?
+```
+
+Description:
+Run a test that only needs the worker URL (no database).
+
+```roc
+TestEnvironment.with!(|worker_url|
+    body = TestEnvironment.fetch!("$(worker_url)/health")?
+    Assert.true(Str.contains(body, "ok"))?
+    Ok({})
+)
+```
+
+Description:
+Run a test that needs both worker URL and database connection.
+
+```roc
+TestEnvironment.with_db!(|{ worker_url, db }|
+    # Insert test data
+    TestEnvironment.command!(db, "INSERT INTO items (name) VALUES ('test')")?
+
+    # Verify via HTTP
+    body = TestEnvironment.fetch!("$(worker_url)/items")?
+    Assert.true(Str.contains(body, "test"))?
+    Ok({})
+)
+```
+
+command! : , Str => Result {}
+
+Description:
+Execute a database command (INSERT/UPDATE/DELETE). Discards results.
+
+```roc
+TestEnvironment.command!(db, "DELETE FROM sessions WHERE expired = true")?
+```
+
+fetch! : Str => Result Str
+
+Description:
+Fetch a URL and return the response body as a string.
+Automatically sets the Host header for reverse proxy routing.
+
+Returns error for non-2xx status codes.
+
+```roc
+body = TestEnvironment.fetch!("$(worker_url)/api/users")?
+```
+
+worker_url! : {} => Result Str
+
+Description:
+Get the worker URL for the current worker index.
+Reads from ROC_SPEC_BASE_PORT, WORKER_INDEX, and optionally ROC_SPEC_HOST.
+If WORKER_INDEX is not set, defaults to 0 (for sequential/single-worker tests).
+
+worker_db! : {} => Result
+
+Description:
+Connect to the worker's isolated database.
+Reads from ROC_SPEC_BASE_DATABASE_NAME, WORKER_INDEX, PG_HOST, PG_PORT, PG_USER.
+If WORKER_INDEX is not set, defaults to 0 (for sequential/single-worker tests).
+
+### Server
+
+Description:
+Run a test with a server. Spawns the server process, waits for it to be
+ready, provides the base_url to the callback, and kills the server when done.
+
+The server port is read from the PORT environment variable (default: 8000).
+
+```roc
+Server.with!(Cmd.new("roc") |> Cmd.args(["dev", "server.roc"]), |base_url|
+    # base_url = "http://localhost:8000" (or whatever PORT is set to)
+    content = Http.get_utf8!("$(base_url)/api/users")?
+    Assert.contains(content, "alice")?
+    Ok({})
+)
+```
+
+Description:
+Run a test with a server, with custom timeout settings.
+
+Like `with!`, but allows configuring the timeout parameters.
+
+```roc
+# Quick timeout for testing slow-start scenarios (5 attempts × 200ms = 1 second)
+Server.with_timeout!(Cmd.new("./my-server"), { max_attempts: 5, delay_ms: 200 }, |base_url|
+    # ...
+)
+```
+

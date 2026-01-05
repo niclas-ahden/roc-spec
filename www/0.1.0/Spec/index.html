@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Spec - Documentation</title>
+    <!-- <meta name="description" content="TODO populate this based on the module's description"> -->
+    <meta name="viewport" content="width=device-width" />
+    <base href="/roc-spec/0.1.0/" />
+    <script type="text/javascript" src="search.js" defer></script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="/favicon.svg" />
+    <!-- Safari ignores rel="icon" and only respects rel="mask-icon". It will render the SVG with
+    fill="#000" unless this `color` attribute here is hardcoded (not a CSS `var()`) to override it.
+  -->
+    <link rel="mask-icon" href="/favicon.svg" color="#7d59dd" />
+    <link rel="prefetch" href="Assert"/>
+    <link rel="prefetch" href="Spec"/>
+    <link rel="prefetch" href="Pg"/>
+    <link rel="prefetch" href="Wait"/>
+    <link rel="prefetch" href="TestEnvironment"/>
+    <link rel="prefetch" href="Server"/>
+</head>
+
+<body>
+    <nav id="sidebar-nav">
+        <div class="pkg-and-logo">
+            <a class="logo" href="/" aria-labelledby="logo-link">
+                <svg viewBox="0 -6 51 58" fill="none" xmlns="http://www.w3.org/2000/svg" aria-labelledby="logo-link"
+                    role="img">
+                    <title id="logo-link">Return to Roc packages</title>
+                    <polygon role="presentation"
+                        points="0,0 23.8834,3.21052 37.2438,19.0101 45.9665,16.6324 50.5,22 45,22 44.0315,26.3689 26.4673,39.3424 27.4527,45.2132 17.655,53 23.6751,22.7086" />
+                </svg>
+            </a>
+            <h1 class="pkg-full-name" ><a href="/roc-spec/0.1.0/" >Documentation</a></h1>
+            <button class="menu-toggle" aria-label="Toggle sidebar">
+                <svg viewBox="0 0 72 72" id="emoji" xmlns="http://www.w3.org/2000/svg" fill="currentcolor">
+                    <g id="SVGRepo_iconCarrier">
+                        <g id="color"></g>
+                        <g id="hair"></g>
+                        <g id="skin"></g>
+                        <g id="skin-shadow"></g>
+                        <g id="line">
+                            <line x1="16" x2="56" y1="26" y2="26" fill="none" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="2">
+                            </line>
+                            <line x1="16" x2="56" y1="36" y2="36" fill="none" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="2">
+                            </line>
+                            <line x1="16" x2="56" y1="46" y2="46" fill="none" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="2">
+                            </line>
+                        </g>
+                    </g>
+                </svg>
+            </button>
+        </div>
+        <div class="module-links-container">
+            <div class="module-links">
+                <div class="sidebar-entry" ><a class="sidebar-module-link" href="Assert" data-module-name="Assert" ><span >Assert</span><button class="entry-toggle" >▶</button></a><div class="sidebar-sub-entries" ><a href="Assert#eq" >eq</a><a href="Assert#not_eq" >not_eq</a><a href="Assert#ok" >ok</a><a href="Assert#err" >err</a><a href="Assert#just" >just</a><a href="Assert#nothing" >nothing</a><a href="Assert#true" >true</a><a href="Assert#false" >false</a><a href="Assert#contains" >contains</a><a href="Assert#not_contains" >not_contains</a><a href="Assert#gt" >gt</a><a href="Assert#gte" >gte</a><a href="Assert#lt" >lt</a><a href="Assert#lte" >lte</a></div></div><div class="sidebar-entry" ><a class="sidebar-module-link" href="Spec" data-module-name="Spec" ><span >Spec</span><button class="entry-toggle" >▶</button></a><div class="sidebar-sub-entries" ><a href="Spec#TestResult" >TestResult</a><a href="Spec#Config" >Config</a><a href="Spec#run!" >run!</a><a href="Spec#run_filtered!" >run_filtered!</a></div></div><div class="sidebar-entry" ><a class="sidebar-module-link" href="Pg" data-module-name="Pg" ><span >Pg</span><button class="entry-toggle" >▶</button></a><div class="sidebar-sub-entries" ><a href="Pg#begin!" >begin!</a><a href="Pg#rollback!" >rollback!</a><a href="Pg#commit!" >commit!</a><a href="Pg#with_rollback!" >with_rollback!</a><a href="Pg#truncate!" >truncate!</a><a href="Pg#with_truncate!" >with_truncate!</a></div></div><div class="sidebar-entry" ><a class="sidebar-module-link" href="Wait" data-module-name="Wait" ><span >Wait</span><button class="entry-toggle" >▶</button></a><div class="sidebar-sub-entries" ><a href="Wait#until!" >until!</a><a href="Wait#ServerConfig" >ServerConfig</a><a href="Wait#for_server!" >for_server!</a></div></div><div class="sidebar-entry" ><a class="sidebar-module-link" href="TestEnvironment" data-module-name="TestEnvironment" ><span >TestEnvironment</span><button class="entry-toggle" >▶</button></a><div class="sidebar-sub-entries" ><a href="TestEnvironment#start!" >start!</a><a href="TestEnvironment#with!" >with!</a><a href="TestEnvironment#with_db!" >with_db!</a><a href="TestEnvironment#command!" >command!</a><a href="TestEnvironment#fetch!" >fetch!</a><a href="TestEnvironment#worker_url!" >worker_url!</a><a href="TestEnvironment#worker_db!" >worker_db!</a></div></div><div class="sidebar-entry" ><a class="sidebar-module-link" href="Server" data-module-name="Server" ><span >Server</span><button class="entry-toggle" >▶</button></a><div class="sidebar-sub-entries" ><a href="Server#with!" >with!</a><a href="Server#with_timeout!" >with_timeout!</a></div></div>
+            </div>
+        </div>
+    </nav>
+    <main>
+        <form id="module-search-form">
+            <button class="menu-toggle" aria-label="Toggle sidebar">
+                <svg viewBox="0 0 72 72" id="emoji" xmlns="http://www.w3.org/2000/svg" fill="currentcolor">
+                    <g id="SVGRepo_iconCarrier">
+                        <g id="color"></g>
+                        <g id="hair"></g>
+                        <g id="skin"></g>
+                        <g id="skin-shadow"></g>
+                        <g id="line">
+                            <line x1="16" x2="56" y1="26" y2="26" fill="none" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="2">
+                            </line>
+                            <line x1="16" x2="56" y1="36" y2="36" fill="none" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="2">
+                            </line>
+                            <line x1="16" x2="56" y1="46" y2="46" fill="none" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="2">
+                            </line>
+                        </g>
+                    </g>
+                </svg>
+            </button>
+            <input id="module-search" aria-labelledby="search-label" type="text"
+                placeholder="Search Documentation" role="combobox" aria-autocomplete="list"
+                aria-expanded="false" aria-controls="search-type-ahead" />
+            <label for="module-search" id="search-label">(press
+                <span id="search-shortcut-key" aria-hidden="true">s</span>)</label>
+            <!-- Magnifying Glass icon -->
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" class="search-icon"
+                xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 512 512"
+                xml:space="preserve">
+                <g>
+                    <path d="M449.803,62.197C408.443,20.807,353.85-0.037,299.646-0.006C245.428-0.037,190.85,20.807,149.49,62.197
+		C108.1,103.557,87.24,158.15,87.303,212.338c-0.047,37.859,10.359,75.766,30.547,109.359L15.021,424.525
+		c-20.016,20.016-20.016,52.453,0,72.469c20,20.016,52.453,20.016,72.453,0L190.318,394.15
+		c33.578,20.203,71.5,30.594,109.328,30.547c54.203,0.047,108.797-20.797,150.156-62.188
+		c41.375-41.359,62.234-95.938,62.188-150.172C512.053,158.15,491.178,103.557,449.803,62.197z M391.818,304.541
+		c-25.547,25.531-58.672,38.125-92.172,38.188c-33.5-0.063-66.609-12.656-92.188-38.188c-25.531-25.578-38.125-58.688-38.188-92.203
+		c0.063-33.484,12.656-66.609,38.188-92.172c25.578-25.531,58.688-38.125,92.188-38.188c33.5,0.063,66.625,12.656,92.188,38.188
+		c25.531,25.563,38.125,58.688,38.188,92.172C429.959,245.854,417.365,278.963,391.818,304.541z"></path>
+                </g>
+            </svg>
+            <ul id="search-type-ahead" role="listbox" aria-label="Search Results" class="hidden">
+                <li role="option" ><a href="Assert#eq" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >eq</span><span class="type-ahead-signature" > : val, val -> Result {} [NotEq Str]
+    where val implements Inspect & Eq</span></a></li><li role="option" ><a href="Assert#not_eq" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >not_eq</span><span class="type-ahead-signature" > : val, val -> Result {} [IsEq Str]
+    where val implements Inspect & Eq</span></a></li><li role="option" ><a href="Assert#ok" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >ok</span><span class="type-ahead-signature" > : Result a err -> Result a [NotOk Str]
+    where err implements Inspect</span></a></li><li role="option" ><a href="Assert#err" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >err</span><span class="type-ahead-signature" > : Result a e -> Result e [NotErr Str]
+    where a implements Inspect</span></a></li><li role="option" ><a href="Assert#just" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >just</span><span class="type-ahead-signature" > :     
+    [
+        Just val,
+        Nothing
+    ]
+    -> Result val [NotJust Str]</span></a></li><li role="option" ><a href="Assert#nothing" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >nothing</span><span class="type-ahead-signature" > :     
+    [
+        Just val,
+        Nothing
+    ]
+    -> Result {} [NotNothing Str]
+    where val implements Inspect</span></a></li><li role="option" ><a href="Assert#true" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >true</span><span class="type-ahead-signature" > : Bool -> Result {} [NotTrue Str]</span></a></li><li role="option" ><a href="Assert#false" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >false</span><span class="type-ahead-signature" > : Bool -> Result {} [NotFalse Str]</span></a></li><li role="option" ><a href="Assert#contains" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >contains</span><span class="type-ahead-signature" > : List a, a -> Result {} [DoesNotContain Str]
+    where a implements Inspect & Eq</span></a></li><li role="option" ><a href="Assert#not_contains" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >not_contains</span><span class="type-ahead-signature" > : List a, a -> Result {} [DoesContain Str]
+    where a implements Inspect & Eq</span></a></li><li role="option" ><a href="Assert#gt" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >gt</span><span class="type-ahead-signature" > : Num a, Num a -> Result {} [NotGt Str]
+    where a implements Inspect</span></a></li><li role="option" ><a href="Assert#gte" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >gte</span><span class="type-ahead-signature" > : Num a, Num a -> Result {} [NotGte Str]
+    where a implements Inspect</span></a></li><li role="option" ><a href="Assert#lt" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >lt</span><span class="type-ahead-signature" > : Num a, Num a -> Result {} [NotLt Str]
+    where a implements Inspect</span></a></li><li role="option" ><a href="Assert#lte" class="type-ahead-link" ><span class="type-ahead-module-name" >Assert</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >lte</span><span class="type-ahead-signature" > : Num a, Num a -> Result {} [NotLte Str]
+    where a implements Inspect</span></a></li><li role="option" ><a href="Spec#TestResult" class="type-ahead-link" ><span class="type-ahead-module-name" >Spec</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >TestResult</span></a></li><li role="option" ><a href="Spec#Config" class="type-ahead-link" ><span class="type-ahead-module-name" >Spec</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >Config</span></a></li><li role="option" ><a href="Spec#run!" class="type-ahead-link" ><span class="type-ahead-module-name" >Spec</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >run!</span><span class="type-ahead-signature" > : Str, Config err => Result (List TestResult) </span></a></li><li role="option" ><a href="Spec#run_filtered!" class="type-ahead-link" ><span class="type-ahead-module-name" >Spec</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >run_filtered!</span><span class="type-ahead-signature" > : 
+    Str, 
+    Config err, 
+    Str
+    => Result (List TestResult) </span></a></li><li role="option" ><a href="Pg#begin!" class="type-ahead-link" ><span class="type-ahead-module-name" >Pg</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >begin!</span><span class="type-ahead-signature" > : (db, Str => Result {} err), db => Result {} err</span></a></li><li role="option" ><a href="Pg#rollback!" class="type-ahead-link" ><span class="type-ahead-module-name" >Pg</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >rollback!</span><span class="type-ahead-signature" > : (db, Str => Result {} err), db => Result {} err</span></a></li><li role="option" ><a href="Pg#commit!" class="type-ahead-link" ><span class="type-ahead-module-name" >Pg</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >commit!</span><span class="type-ahead-signature" > : (db, Str => Result {} err), db => Result {} err</span></a></li><li role="option" ><a href="Pg#with_rollback!" class="type-ahead-link" ><span class="type-ahead-module-name" >Pg</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with_rollback!</span><span class="type-ahead-signature" > : 
+    (db, Str => Result {} err), 
+    db, 
+    (db => Result a err)
+    => Result a err</span></a></li><li role="option" ><a href="Pg#truncate!" class="type-ahead-link" ><span class="type-ahead-module-name" >Pg</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >truncate!</span><span class="type-ahead-signature" > : 
+    (db, Str => Result {} err), 
+    db, 
+    List Str
+    => Result {} err</span></a></li><li role="option" ><a href="Pg#with_truncate!" class="type-ahead-link" ><span class="type-ahead-module-name" >Pg</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with_truncate!</span><span class="type-ahead-signature" > : 
+    (db, Str => Result {} err), 
+    db, 
+    List Str, 
+    (db => Result a err)
+    => Result a err</span></a></li><li role="option" ><a href="Wait#until!" class="type-ahead-link" ><span class="type-ahead-module-name" >Wait</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >until!</span><span class="type-ahead-signature" > : 
+    ({} => Result {} err),     
+    {
+        max_attempts : U64,
+        delay_ms : U64
+    }
+    => Result {} [ConditionNotMet err]</span></a></li><li role="option" ><a href="Wait#ServerConfig" class="type-ahead-link" ><span class="type-ahead-module-name" >Wait</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >ServerConfig</span></a></li><li role="option" ><a href="Wait#for_server!" class="type-ahead-link" ><span class="type-ahead-module-name" >Wait</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >for_server!</span><span class="type-ahead-signature" > : Str, ServerConfig => Result {} [ServerNotReady Str]</span></a></li><li role="option" ><a href="TestEnvironment#start!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >start!</span><span class="type-ahead-signature" > :     
+    {
+        count : U16,
+        start! : U16 => Result {} err
+    }
+    => Result {} err</span></a></li><li role="option" ><a href="TestEnvironment#with!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with!</span></a></li><li role="option" ><a href="TestEnvironment#with_db!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with_db!</span></a></li><li role="option" ><a href="TestEnvironment#command!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >command!</span><span class="type-ahead-signature" > : , Str => Result {} </span></a></li><li role="option" ><a href="TestEnvironment#fetch!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >fetch!</span><span class="type-ahead-signature" > : Str => Result Str </span></a></li><li role="option" ><a href="TestEnvironment#worker_url!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >worker_url!</span><span class="type-ahead-signature" > : {} => Result Str </span></a></li><li role="option" ><a href="TestEnvironment#worker_db!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >worker_db!</span><span class="type-ahead-signature" > : {} => Result  </span></a></li><li role="option" ><a href="Server#with!" class="type-ahead-link" ><span class="type-ahead-module-name" >Server</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with!</span></a></li><li role="option" ><a href="Server#with_timeout!" class="type-ahead-link" ><span class="type-ahead-module-name" >Server</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with_timeout!</span></a></li>
+            </ul>
+        </form>
+        <h2 class="module-name" ><a href="/" >Spec</a></h2><p>A Roc package for writing and running parallel tests with isolated test environments.
+Includes hooks for setup/teardown and utilities like database helpers, waiting for
+web servers to start etc.</p>
+<h2>Quick start</h2>
+<pre><samp><span class="upperident">Spec</span><span class="delimiter">.</span><span class="lowerident">run</span><span class="op">!</span><span class="delimiter">(</span><span class="literal">"tests"</span><span class="delimiter">,</span><span class="delimiter"> {</span><span class="lowerident">
+    max</span><span class="lowerident">_</span><span class="lowerident">workers</span><span class="kw">:</span><span class="literal"> 4</span><span class="delimiter">,</span><span class="lowerident">
+    worker</span><span class="lowerident">_</span><span class="lowerident">envs</span><span class="kw">:</span><span class="delimiter"> |</span><span class="lowerident">index</span><span class="delimiter">|</span><span class="delimiter"> [</span><span class="delimiter">(</span><span class="literal">"DATABASE_NAME"</span><span class="delimiter">,</span><span class="literal"> "test_$(Num.to_str(index))"</span><span class="delimiter">)</span><span class="delimiter">]</span><span class="delimiter">,</span><span class="lowerident">
+    before</span><span class="lowerident">_</span><span class="lowerident">each</span><span class="op">!</span><span class="kw">:</span><span class="delimiter"> |</span><span class="lowerident">_</span><span class="delimiter">|</span><span class="upperident"> Ok</span><span class="delimiter">(</span><span class="delimiter">{</span><span class="delimiter">}</span><span class="delimiter">)</span><span class="delimiter">,</span><span class="lowerident">
+    per</span><span class="lowerident">_</span><span class="lowerident">test</span><span class="lowerident">_</span><span class="lowerident">timeout</span><span class="lowerident">_</span><span class="lowerident">ms</span><span class="kw">:</span><span class="literal"> 60_000</span><span class="delimiter">,</span><span class="delimiter">
+}</span><span class="delimiter">)</span></samp></pre></code></pre>
+<h2>Features</h2>
+<ul>
+<li>Parallel execution with rolling window of workers</li>
+<li>Worker isolation via environment variables</li>
+<li>Before-each hooks (e.g., truncate database)</li>
+<li>Per-test timeouts</li>
+<li>Recursive test file discovery</li>
+<li>Pattern-based filtering</li>
+</ul>
+<h2>Test file format</h2>
+<p>Each test file should be a standalone Roc application that exits with code 0 on success
+and non-zero on failure. The test name is derived from the filename.</p>
+<section><h3 id="TestResult" class="entry-name" ><a href="Spec#TestResult" ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor"><!--!
+	Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License -
+	https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+	Copyright 2023 Fonticons, Inc. -->
+	<path
+		d="M562.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L405.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C189.5 251.2 196 330 246 380c56.5 56.5 148 56.5 204.5 0L562.8 267.7zM43.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C57 372 57 321 88.5 289.5L200.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C416.5 260.8 410 182 360 132c-56.5-56.5-148-56.5-204.5 0L43.2 244.3z" />
+</svg></a><code><span class="upperident">TestResult</span></code></h3><p>Result of a single test.</p>
+<ul>
+<li><code>name</code>: Test name derived from filename (e.g., <code>test_login</code> from <code>test_login.roc</code>)</li>
+<li><code>passed</code>: Whether the test exited with code 0</li>
+<li><code>duration_ms</code>: How long the test took to run</li>
+<li><code>output</code>: Captured stdout from the test process</li>
+<li><code>error</code>: Captured stderr from the test process</li>
+</ul>
+</section><section><h3 id="Config" class="entry-name" ><a href="Spec#Config" ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor"><!--!
+	Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License -
+	https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+	Copyright 2023 Fonticons, Inc. -->
+	<path
+		d="M562.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L405.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C189.5 251.2 196 330 246 380c56.5 56.5 148 56.5 204.5 0L562.8 267.7zM43.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C57 372 57 321 88.5 289.5L200.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C416.5 260.8 410 182 360 132c-56.5-56.5-148-56.5-204.5 0L43.2 244.3z" />
+</svg></a><code><span class="upperident">Config</span><span class="lowerident"> err</span></code></h3><p>Configuration for parallel test execution.</p>
+<ul>
+<li><code>max_workers</code>: Maximum number of tests to run concurrently</li>
+<li><code>worker_envs</code>: Function that returns environment variables for a given worker index</li>
+<li><code>before_each!</code>: Hook called before each test (e.g., to truncate database)</li>
+<li><code>per_test_timeout_ms</code>: Timeout for each individual test in milliseconds</li>
+<li><code>quiet</code>: When true, only show stdout/stderr for failed tests; when false, show for all tests</li>
+</ul>
+<p>Example:</p>
+<pre><samp><span class="delimiter">{</span><span class="lowerident">
+    max</span><span class="lowerident">_</span><span class="lowerident">workers</span><span class="kw">:</span><span class="literal"> 32</span><span class="delimiter">,</span><span class="lowerident">
+    worker</span><span class="lowerident">_</span><span class="lowerident">envs</span><span class="kw">:</span><span class="delimiter"> |</span><span class="lowerident">index</span><span class="delimiter">|</span><span class="delimiter"> [</span><span class="delimiter">
+        (</span><span class="literal">"APP_PORT"</span><span class="delimiter">,</span><span class="upperident"> Num</span><span class="delimiter">.</span><span class="lowerident">to</span><span class="lowerident">_</span><span class="lowerident">str</span><span class="delimiter">(</span><span class="literal">8000</span><span class="op"> +</span><span class="lowerident"> index</span><span class="delimiter">)</span><span class="delimiter">)</span><span class="delimiter">,</span><span class="delimiter">
+        (</span><span class="literal">"DATABASE_NAME"</span><span class="delimiter">,</span><span class="literal"> "test_$(Num.to_str(index))"</span><span class="delimiter">)</span><span class="delimiter">,</span><span class="delimiter">
+    ]</span><span class="delimiter">,</span><span class="lowerident">
+    before</span><span class="lowerident">_</span><span class="lowerident">each</span><span class="op">!</span><span class="kw">:</span><span class="delimiter"> |</span><span class="lowerident">index</span><span class="delimiter">|</span><span class="upperident"> Pg</span><span class="delimiter">.</span><span class="lowerident">truncate</span><span class="op">!</span><span class="delimiter">(</span><span class="lowerident">query</span><span class="op">!</span><span class="delimiter">,</span><span class="lowerident"> db</span><span class="delimiter">,</span><span class="delimiter"> [</span><span class="delimiter">]</span><span class="delimiter">)</span><span class="delimiter">,</span><span class="lowerident">
+    per</span><span class="lowerident">_</span><span class="lowerident">test</span><span class="lowerident">_</span><span class="lowerident">timeout</span><span class="lowerident">_</span><span class="lowerident">ms</span><span class="kw">:</span><span class="literal"> 120_000</span><span class="delimiter">,</span><span class="lowerident">
+    quiet</span><span class="kw">:</span><span class="upperident"> Bool</span><span class="delimiter">.</span><span class="lowerident">false</span><span class="delimiter">,</span><span class="delimiter">
+}</span></samp></pre></code></pre>
+</section><section><h3 id="run!" class="entry-name" ><a href="Spec#run!" ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor"><!--!
+	Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License -
+	https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+	Copyright 2023 Fonticons, Inc. -->
+	<path
+		d="M562.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L405.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C189.5 251.2 196 330 246 380c56.5 56.5 148 56.5 204.5 0L562.8 267.7zM43.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C57 372 57 321 88.5 289.5L200.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C416.5 260.8 410 182 360 132c-56.5-56.5-148-56.5-204.5 0L43.2 244.3z" />
+</svg></a><code><span class="lowerident">run</span><span class="op">!</span><span class="kw"> :</span><span class="upperident"> Str</span><span class="delimiter">,</span><span class="upperident"> Config</span><span class="lowerident"> err</span><span class="kw"> =</span><span class="op">&gt;</span><span class="upperident"> Result</span><span class="delimiter"> (</span><span class="upperident">List</span><span class="upperident"> TestResult</span><span class="delimiter">)</span></code></h3><p>Run all <code>test_*.roc</code> files in the given directory and subdirectories in parallel.</p>
+<p>Returns a list of test results, one for each test file discovered and run.
+See <code>run_filtered!</code> to run a subset of tests by name pattern.</p>
+</section><section><h3 id="run_filtered!" class="entry-name" ><a href="Spec#run_filtered!" ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor"><!--!
+	Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License -
+	https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+	Copyright 2023 Fonticons, Inc. -->
+	<path
+		d="M562.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L405.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C189.5 251.2 196 330 246 380c56.5 56.5 148 56.5 204.5 0L562.8 267.7zM43.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C57 372 57 321 88.5 289.5L200.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C416.5 260.8 410 182 360 132c-56.5-56.5-148-56.5-204.5 0L43.2 244.3z" />
+</svg></a><code><span class="lowerident">run</span><span class="lowerident">_</span><span class="lowerident">filtered</span><span class="op">!</span><span class="kw"> :</span><span class="upperident"> 
+    Str</span><span class="delimiter">,</span><span class="upperident"> 
+    Config</span><span class="lowerident"> err</span><span class="delimiter">,</span><span class="upperident"> 
+    Str</span><span class="kw">
+    =</span><span class="op">&gt;</span><span class="upperident"> Result</span><span class="delimiter"> (</span><span class="upperident">List</span><span class="upperident"> TestResult</span><span class="delimiter">)</span></code></h3><p>Run tests matching a pattern.</p>
+<p>The pattern is a simple substring match on the filename:</p>
+<ul>
+<li><code>""</code> (empty string): run all tests</li>
+<li><code>"login"</code>: matches <code>test_login.roc</code>, <code>test_login_flow.roc</code>, etc.</li>
+<li><code>"api"</code>: matches <code>test_api_auth.roc</code>, <code>test_user_api.roc</code>, etc.</li>
+</ul>
+<p>Recursively searches all subdirectories for test files.</p>
+</section>
+        <footer>
+            <p>Made by people who like to make nice things.</p>
+        </footer>
+    </main>
+</body>
+
+</html>
