@@ -27,7 +27,7 @@ main! = |_args|
 # run_tests.roc
 app [main!] {
     pf: platform "...",
-    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.1.0/k-8alMRioDXgy1Gc6CS4zHkJn6NId_Bjoe6TjS_XlaM.tar.br",
+    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.1.0/1gNyp2QAxomebg0_bZTY4WwD6WFyLjVl6TbC7Dr7AX8.tar.br",
 }
 
 import pf.Stdout
