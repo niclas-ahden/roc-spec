@@ -158,28 +158,14 @@
     => Result {} err</span></a></li><li role="option" ><a href="TestEnvironment#with!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with!</span></a></li><li role="option" ><a href="TestEnvironment#with_db!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with_db!</span></a></li><li role="option" ><a href="TestEnvironment#command!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >command!</span><span class="type-ahead-signature" > : , Str => Result {} </span></a></li><li role="option" ><a href="TestEnvironment#fetch!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >fetch!</span><span class="type-ahead-signature" > : Str => Result Str </span></a></li><li role="option" ><a href="TestEnvironment#worker_url!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >worker_url!</span><span class="type-ahead-signature" > : {} => Result Str </span></a></li><li role="option" ><a href="TestEnvironment#worker_db!" class="type-ahead-link" ><span class="type-ahead-module-name" >TestEnvironment</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >worker_db!</span><span class="type-ahead-signature" > : {} => Result  </span></a></li><li role="option" ><a href="Server#with!" class="type-ahead-link" ><span class="type-ahead-module-name" >Server</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with!</span></a></li><li role="option" ><a href="Server#with_timeout!" class="type-ahead-link" ><span class="type-ahead-module-name" >Server</span><span class="type-ahead-module-dot" >.</span><span class="type-ahead-def-name" >with_timeout!</span></a></li>
             </ul>
         </form>
-        <h2 class="module-name" ><a href="/" >Spec</a></h2><p>A Roc package for writing and running parallel tests with isolated test environments.
-Includes hooks for setup/teardown and utilities like database helpers, waiting for
-web servers to start etc.</p>
-<h2>Quick start</h2>
+        <h2 class="module-name" ><a href="/" >Spec</a></h2><p>The main entrypoint for running your tests. Use <code>Spec.run!</code> or <code>Spec.run_filtered!</code> and pass in a <code>Config</code>.</p>
+<p>Example:</p>
 <pre><samp><span class="upperident">Spec</span><span class="delimiter">.</span><span class="lowerident">run</span><span class="op">!</span><span class="delimiter">(</span><span class="literal">"tests"</span><span class="delimiter">,</span><span class="delimiter"> {</span><span class="lowerident">
     max</span><span class="lowerident">_</span><span class="lowerident">workers</span><span class="kw">:</span><span class="literal"> 4</span><span class="delimiter">,</span><span class="lowerident">
     worker</span><span class="lowerident">_</span><span class="lowerident">envs</span><span class="kw">:</span><span class="delimiter"> |</span><span class="lowerident">index</span><span class="delimiter">|</span><span class="delimiter"> [</span><span class="delimiter">(</span><span class="literal">"DATABASE_NAME"</span><span class="delimiter">,</span><span class="literal"> "test_$(Num.to_str(index))"</span><span class="delimiter">)</span><span class="delimiter">]</span><span class="delimiter">,</span><span class="lowerident">
     before</span><span class="lowerident">_</span><span class="lowerident">each</span><span class="op">!</span><span class="kw">:</span><span class="delimiter"> |</span><span class="lowerident">_</span><span class="delimiter">|</span><span class="upperident"> Ok</span><span class="delimiter">(</span><span class="delimiter">{</span><span class="delimiter">}</span><span class="delimiter">)</span><span class="delimiter">,</span><span class="lowerident">
     per</span><span class="lowerident">_</span><span class="lowerident">test</span><span class="lowerident">_</span><span class="lowerident">timeout</span><span class="lowerident">_</span><span class="lowerident">ms</span><span class="kw">:</span><span class="literal"> 60_000</span><span class="delimiter">,</span><span class="delimiter">
 }</span><span class="delimiter">)</span></samp></pre></code></pre>
-<h2>Features</h2>
-<ul>
-<li>Parallel execution with rolling window of workers</li>
-<li>Worker isolation via environment variables</li>
-<li>Before-each hooks (e.g., truncate database)</li>
-<li>Per-test timeouts</li>
-<li>Recursive test file discovery</li>
-<li>Pattern-based filtering</li>
-</ul>
-<h2>Test file format</h2>
-<p>Each test file should be a standalone Roc application that exits with code 0 on success
-and non-zero on failure. The test name is derived from the filename.</p>
 <section><h3 id="TestResult" class="entry-name" ><a href="Spec#TestResult" ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor"><!--!
 	Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License -
 	https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
@@ -203,7 +189,7 @@ and non-zero on failure. The test name is derived from the filename.</p>
 </svg></a><code><span class="upperident">Config</span><span class="lowerident"> err</span></code></h3><p>Configuration for parallel test execution.</p>
 <ul>
 <li><code>max_workers</code>: Maximum number of tests to run concurrently</li>
-<li><code>worker_envs</code>: Function that returns environment variables for a given worker index</li>
+<li><code>worker_envs</code>: Function that returns the environment variables to set for a given worker index</li>
 <li><code>before_each!</code>: Hook called before each test (e.g., to truncate database)</li>
 <li><code>per_test_timeout_ms</code>: Timeout for each individual test in milliseconds</li>
 <li><code>quiet</code>: When true, only show stdout/stderr for failed tests; when false, show for all tests</li>
@@ -243,7 +229,7 @@ See <code>run_filtered!</code> to run a subset of tests by name pattern.</p>
 <ul>
 <li><code>""</code> (empty string): run all tests</li>
 <li><code>"login"</code>: matches <code>test_login.roc</code>, <code>test_login_flow.roc</code>, etc.</li>
-<li><code>"api"</code>: matches <code>test_api_auth.roc</code>, <code>test_user_api.roc</code>, etc.</li>
+<li>We don't yet support globbing, wildcards, regex etc.</li>
 </ul>
 <p>Recursively searches all subdirectories for test files.</p>
 </section>

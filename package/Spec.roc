@@ -1,8 +1,6 @@
-## A Roc package for writing and running parallel tests with isolated test environments.
-## Includes hooks for setup/teardown and utilities like database helpers, waiting for
-## web servers to start etc.
+## The main entrypoint for running your tests. Use `Spec.run!` or `Spec.run_filtered!` and pass in a `Config`.
 ##
-## ## Quick start
+## Example:
 ## ```roc
 ## Spec.run!("tests", {
 ##     max_workers: 4,
@@ -11,18 +9,6 @@
 ##     per_test_timeout_ms: 60_000,
 ## })
 ## ```
-##
-## ## Features
-## - Parallel execution with rolling window of workers
-## - Worker isolation via environment variables
-## - Before-each hooks (e.g., truncate database)
-## - Per-test timeouts
-## - Recursive test file discovery
-## - Pattern-based filtering
-##
-## ## Test file format
-## Each test file should be a standalone Roc application that exits with code 0 on success
-## and non-zero on failure. The test name is derived from the filename.
 module { cmd_new, cmd_args, cmd_envs, cmd_spawn_grouped!, stdout_line!, dir_list!, utc_now!, sleep_millis! } -> [
     TestResult,
     Config,
@@ -65,7 +51,7 @@ TestResult : {
 ## Configuration for parallel test execution.
 ##
 ## - `max_workers`: Maximum number of tests to run concurrently
-## - `worker_envs`: Function that returns environment variables for a given worker index
+## - `worker_envs`: Function that returns the environment variables to set for a given worker index
 ## - `before_each!`: Hook called before each test (e.g., to truncate database)
 ## - `per_test_timeout_ms`: Timeout for each individual test in milliseconds
 ## - `quiet`: When true, only show stdout/stderr for failed tests; when false, show for all tests
@@ -104,7 +90,7 @@ run! = |test_dir, config|
 ## The pattern is a simple substring match on the filename:
 ## - `""` (empty string): run all tests
 ## - `"login"`: matches `test_login.roc`, `test_login_flow.roc`, etc.
-## - `"api"`: matches `test_api_auth.roc`, `test_user_api.roc`, etc.
+## - We don't yet support globbing, wildcards, regex etc.
 ##
 ## Recursively searches all subdirectories for test files.
 run_filtered! : Str, Config err, Str => Result (List TestResult) _
@@ -135,12 +121,12 @@ process_directory_entries! = |entries, pattern, acc|
             basename = get_basename(entry)
 
             # Check if this entry is a test file
-            is_test_file = Str.starts_with(basename, "test_") && Str.ends_with(basename, ".roc")
+            is_test_file = Str.starts_with(basename, "test_") and Str.ends_with(basename, ".roc")
             matches_pattern = if Str.is_empty(pattern) then Bool.true else Str.contains(basename, pattern)
 
             # Add to results if it's a matching test file
             with_file =
-                if is_test_file && matches_pattern then
+                if is_test_file and matches_pattern then
                     List.append(acc, entry)
                 else
                     acc
@@ -241,12 +227,14 @@ find_completed_helper! = |remaining, checked|
 
             when poll_result is
                 Ok(Exited({ exit_code, stdout, stderr })) ->
-                    Found({
-                        completed: { name, start_time },
-                        worker_index,
-                        poll_result: Ok({ stdout, stderr, exit_code }),
-                        remaining: List.concat(checked, List.map(rest, |r| r)),
-                    })
+                    Found(
+                        {
+                            completed: { name, start_time },
+                            worker_index,
+                            poll_result: Ok({ stdout, stderr, exit_code }),
+                            remaining: List.concat(checked, List.map(rest, |r| r)),
+                        },
+                    )
 
                 Ok(Running) ->
                     # Not finished yet, keep looking
@@ -270,7 +258,7 @@ process_poll_result! = |{ name, start_time }, poll_result, quiet|
             stderr_str = Str.from_utf8(stderr) |> Result.with_default("")
 
             if exit_code == 0 then
-                _ = stdout_line!("$(green_check) $(name) ($(format_duration(duration_ms)))")
+                _ = stdout_line!("${green_check} ${name} (${format_duration(duration_ms)})")
                 _ =
                     if !quiet then
                         print_output!(stdout_str, stderr_str)
@@ -285,7 +273,7 @@ process_poll_result! = |{ name, start_time }, poll_result, quiet|
                 }
             else if exit_code == 124 then
                 # Exit code 124 = timeout command killed the process
-                _ = stdout_line!("$(red_x) $(name) (TIMEOUT after $(format_duration(duration_ms)))")
+                _ = stdout_line!("${red_x} ${name} (TIMEOUT after ${format_duration(duration_ms)})")
                 _ = print_output!(stdout_str, stderr_str)
                 {
                     name,
@@ -295,7 +283,7 @@ process_poll_result! = |{ name, start_time }, poll_result, quiet|
                     error: "Test timed out",
                 }
             else
-                _ = stdout_line!("$(red_x) $(name) ($(format_duration(duration_ms)))")
+                _ = stdout_line!("${red_x} ${name} (${format_duration(duration_ms)})")
                 _ = print_output!(stdout_str, stderr_str)
                 {
                     name,
@@ -306,7 +294,7 @@ process_poll_result! = |{ name, start_time }, poll_result, quiet|
                 }
 
         Err(_) ->
-            _ = stdout_line!("$(red_x) $(name) (failed to run)")
+            _ = stdout_line!("${red_x} ${name} (failed to run)")
             {
                 name,
                 passed: Bool.false,
@@ -360,15 +348,17 @@ spawn_one! = |file, worker_index, config|
         Err(_) ->
             # Note: Can't use Inspect.to_str(e) here due to compiler bug with
             # polymorphic error types from module param callbacks
-            _ = stdout_line!("$(red_x) $(name) (before_each failed)")
-            AlreadyFailed({
-                name,
-                worker_index,
-                passed: Bool.false,
-                duration_ms: 0,
-                output: "",
-                error: "before_each! failed: can't give more context due compiler limitations",
-            })
+            _ = stdout_line!("${red_x} ${name} (before_each failed)")
+            AlreadyFailed(
+                {
+                    name,
+                    worker_index,
+                    passed: Bool.false,
+                    duration_ms: 0,
+                    output: "",
+                    error: "before_each! failed: can't give more context due compiler limitations",
+                },
+            )
 
         Ok({}) ->
             start_time = utc_now!({})
@@ -385,12 +375,14 @@ spawn_one! = |file, worker_index, config|
                     Spawned({ name, worker_index, child, start_time })
 
                 Err(e) ->
-                    _ = stdout_line!("$(red_x) $(name) (failed to spawn)")
-                    AlreadyFailed({
-                        name,
-                        worker_index,
-                        passed: Bool.false,
-                        duration_ms: 0,
-                        output: "",
-                        error: "Failed to spawn process: $(Inspect.to_str(e))",
-                    })
+                    _ = stdout_line!("${red_x} ${name} (failed to spawn)")
+                    AlreadyFailed(
+                        {
+                            name,
+                            worker_index,
+                            passed: Bool.false,
+                            duration_ms: 0,
+                            output: "",
+                            error: "Failed to spawn process: ${Inspect.to_str(e)}",
+                        },
+                    )

@@ -193,7 +193,7 @@ Description:
 Configuration for parallel test execution.
 
 - `max_workers`: Maximum number of tests to run concurrently
-- `worker_envs`: Function that returns environment variables for a given worker index
+- `worker_envs`: Function that returns the environment variables to set for a given worker index
 - `before_each!`: Hook called before each test (e.g., to truncate database)
 - `per_test_timeout_ms`: Timeout for each individual test in milliseconds
 - `quiet`: When true, only show stdout/stderr for failed tests; when false, show for all tests
@@ -228,7 +228,7 @@ Run tests matching a pattern.
 The pattern is a simple substring match on the filename:
 - `""` (empty string): run all tests
 - `"login"`: matches `test_login.roc`, `test_login_flow.roc`, etc.
-- `"api"`: matches `test_api_auth.roc`, `test_user_api.roc`, etc.
+- We don't yet support globbing, wildcards, regex etc.
 
 Recursively searches all subdirectories for test files.
 

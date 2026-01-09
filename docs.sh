@@ -17,7 +17,8 @@ fi
 # Generate documentation with versioned root directory
 roc docs --root-dir "/$PACKAGE_NAME/$VERSION/" package/main.roc
 
-# Create versioned directory in www/
+# Remove existing docs for this version (if any) and create fresh directory
+rm -rf "www/$VERSION"
 mkdir -p "www/$VERSION"
 
 # Move generated docs to versioned directory
