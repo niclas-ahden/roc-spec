@@ -1,7 +1,7 @@
 app [main!] {
-    pf: platform "../../growthagent/basic-cli/platform/main.roc",
+    pf: platform "https://github.com/growthagent/basic-cli/releases/download/0.27.0/G-A6F5ny0IYDx4hmF3t_YPHUSR28c9ZXMBnh0FEJjwk.tar.br",
     pg: "https://github.com/growthagent/roc-pg/releases/download/0.7.0/X06BecFGCZlH_7YhdTQmN6PtxgYDRH2ykIH30obB0lg.tar.br",
-    dburl: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.1.0/w6sV-GxFqFo8cGOC8oxam_-TZAQkjjRKFamcqZfftbY.tar.br",
+    dburl: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.2.0/s4GFtAUejxeujRC8kYEszDd-bqHC3eVrCKPVj3nq9Mc.tar.br",
     spec: "../package/main.roc",
 }
 

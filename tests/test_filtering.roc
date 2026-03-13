@@ -1,5 +1,5 @@
 app [main!] {
-    pf: platform "../../growthagent/basic-cli/platform/main.roc",
+    pf: platform "https://github.com/growthagent/basic-cli/releases/download/0.27.0/G-A6F5ny0IYDx4hmF3t_YPHUSR28c9ZXMBnh0FEJjwk.tar.br",
     spec: "../package/main.roc",
 }
 
@@ -41,6 +41,7 @@ config = {
     before_each!: |_index| Ok({}),
     per_test_timeout_ms: 30_000,
     quiet: Bool.true,
+    fail_fast: Bool.false,
 }
 
 main! : List Arg.Arg => Result {} _

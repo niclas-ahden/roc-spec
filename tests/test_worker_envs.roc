@@ -1,5 +1,5 @@
 app [main!] {
-    pf: platform "../../growthagent/basic-cli/platform/main.roc",
+    pf: platform "https://github.com/growthagent/basic-cli/releases/download/0.27.0/G-A6F5ny0IYDx4hmF3t_YPHUSR28c9ZXMBnh0FEJjwk.tar.br",
     spec: "../package/main.roc",
 }
 
@@ -46,6 +46,7 @@ main! = |_args|
         before_each!: |_index| Ok({}),
         per_test_timeout_ms: 30_000,
         quiet: Bool.true,
+        fail_fast: Bool.false,
     }
 
     results_with_env = Spec.run!("tests/env_fixtures", config_with_env)?
@@ -62,6 +63,7 @@ main! = |_args|
         before_each!: |_index| Ok({}),
         per_test_timeout_ms: 30_000,
         quiet: Bool.true, # Suppress output for expected failures
+        fail_fast: Bool.false,
     }
 
     results_no_env = Spec.run!("tests/env_fixtures", config_no_env)?
@@ -78,6 +80,7 @@ main! = |_args|
         before_each!: |_index| Ok({}),
         per_test_timeout_ms: 30_000,
         quiet: Bool.true,
+        fail_fast: Bool.false,
     }
 
     results_multi = Spec.run!("tests/env_fixtures", config_multi)?
