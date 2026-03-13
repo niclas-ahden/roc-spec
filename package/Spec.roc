@@ -55,6 +55,7 @@ TestResult : {
 ## - `before_each!`: Hook called before each test (e.g., to truncate database)
 ## - `per_test_timeout_ms`: Timeout for each individual test in milliseconds
 ## - `quiet`: When true, only show stdout/stderr for failed tests; when false, show for all tests
+## - `fail_fast`: When true, stop running new tests after the first failure
 ##
 ## Example:
 ## ```roc
@@ -67,6 +68,7 @@ TestResult : {
 ##     before_each!: |index| Pg.truncate!(query!, db, []),
 ##     per_test_timeout_ms: 120_000,
 ##     quiet: Bool.false,
+##     fail_fast: Bool.false,
 ## }
 ## ```
 Config err : {
@@ -75,6 +77,7 @@ Config err : {
     before_each! : U64 => Result {} err,
     per_test_timeout_ms : U64,
     quiet : Bool,
+    fail_fast : Bool,
 }
 
 ## Run all `test_*.roc` files in the given directory and subdirectories in parallel.
@@ -149,11 +152,11 @@ run_with_rolling_window! = |test_files, config|
     initial_spawned = spawn_batch_with_indices!(initial_files, config, 0)
 
     # Process tests: poll for completion, process finished ones, spawn new ones as slots free up
-    process_rolling_window!(initial_spawned, remaining_files, config, max_workers, [])
+    process_rolling_window!(initial_spawned, remaining_files, config, max_workers, [], Bool.false)
 
 ## Process spawned tests by polling for completion.
 ## Tests are processed in completion order (whichever finishes first), not spawn order.
-process_rolling_window! = |spawned_queue, pending_files, config, max_workers, results|
+process_rolling_window! = |spawned_queue, pending_files, config, max_workers, results, stopping|
     when spawned_queue is
         [] ->
             # No more spawned tests, we're done
@@ -172,34 +175,41 @@ process_rolling_window! = |spawned_queue, pending_files, config, max_workers, re
                             Spawned(_) -> crash "unreachable"
 
                     test_result = { name, passed, duration_ms, output, error }
+                    now_stopping = stopping || (config.fail_fast && !passed)
 
-                    # Spawn replacement if any pending
-                    { new_spawned, new_pending } = spawn_replacement!(running, other_failed, pending_files, worker_index, config)
-
-                    # Continue processing
-                    process_rolling_window!(new_spawned, new_pending, config, max_workers, List.append(results, test_result))
+                    # Don't spawn replacements if stopping
+                    if now_stopping then
+                        remaining_queue = List.concat(running, other_failed)
+                        process_rolling_window!(remaining_queue, [], config, max_workers, List.append(results, test_result), now_stopping)
+                    else
+                        # Spawn replacement if any pending
+                        { new_spawned, new_pending } = spawn_replacement!(running, other_failed, pending_files, worker_index, config)
+                        process_rolling_window!(new_spawned, new_pending, config, max_workers, List.append(results, test_result), now_stopping)
 
                 [] ->
                     # No failed tests, poll running tests for completion
-                    poll_for_completion!(running, pending_files, config, max_workers, results)
+                    poll_for_completion!(running, pending_files, config, max_workers, results, stopping)
 
 ## Poll all running tests and process whichever finishes first.
-poll_for_completion! = |running, pending_files, config, max_workers, results|
+poll_for_completion! = |running, pending_files, config, max_workers, results, stopping|
     when find_completed!(running) is
         Found({ completed, worker_index, poll_result, remaining }) ->
             # Process the completed test
             test_result = process_poll_result!(completed, poll_result, config.quiet)
+            now_stopping = stopping || (config.fail_fast && !test_result.passed)
 
-            # Spawn replacement if any pending
-            { new_spawned, new_pending } = spawn_replacement!(remaining, [], pending_files, worker_index, config)
-
-            # Continue processing
-            process_rolling_window!(new_spawned, new_pending, config, max_workers, List.append(results, test_result))
+            if now_stopping then
+                # Don't spawn replacements, just drain remaining running tests
+                process_rolling_window!(remaining, [], config, max_workers, List.append(results, test_result), now_stopping)
+            else
+                # Spawn replacement if any pending
+                { new_spawned, new_pending } = spawn_replacement!(remaining, [], pending_files, worker_index, config)
+                process_rolling_window!(new_spawned, new_pending, config, max_workers, List.append(results, test_result), now_stopping)
 
         NoneCompleted ->
             # No test finished yet, sleep briefly and try again
             sleep_millis!(10)
-            poll_for_completion!(running, pending_files, config, max_workers, results)
+            poll_for_completion!(running, pending_files, config, max_workers, results, stopping)
 
 ## Partition spawned tests into AlreadyFailed and Spawned (running)
 partition_failed = |spawned_queue|
