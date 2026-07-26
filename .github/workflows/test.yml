@@ -1,0 +1,59 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: niclas-ahden/roc-workflows/.github/workflows/test.yml@v1
+
+  # The full self-test suite (server + Postgres fixtures) drives the package
+  # through a real platform. Every fixture pulls basic-cli in by URL, so no
+  # sibling checkout is needed.
+  integration:
+    name: Integration (self-test suite)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: roc
+          POSTGRES_PASSWORD: roc
+          POSTGRES_DB: roc_spec_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          # Keep the saved store under GitHub's 10 GB/repo cache budget.
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+
+      - name: Build Roc from the flake
+        run: nix build .#roc
+
+      - name: Run the self-test suite
+        env:
+          DATABASE_URL: postgresql://roc:roc@localhost:5432/roc_spec_test
+        run: nix develop -c ./tests.roc

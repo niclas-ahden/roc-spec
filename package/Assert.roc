@@ -1,266 +1,306 @@
-module [eq, not_eq, ok, err, just, nothing, true, false, contains, not_contains, gt, gte, lt, lte]
-
-## Assert two values are equal.
+## Assertion helpers for test files.
 ##
+## Each assertion returns a `Try`, so failures can be propagated with `?`:
 ## ```roc
 ## Assert.eq(actual, expected)?
 ## Assert.eq(actual, expected) ? MyTag
 ## ```
-eq : val, val -> Result {} [NotEq Str] where val implements Inspect & Eq
-eq = |actual, expected|
-    if actual == expected then
-        Ok({})
-    else
-        Err(NotEq("$(Inspect.to_str(actual)) should equal $(Inspect.to_str(expected)), but it doesn't."))
+Assert :: [].{
 
-## Assert two values are not equal.
-##
-## ```roc
-## Assert.not_eq(actual, unexpected)?
-## Assert.not_eq(actual, unexpected) ? MyTag
-## ```
-not_eq : val, val -> Result {} [IsEq Str] where val implements Inspect & Eq
-not_eq = |actual, unexpected|
-    if actual != unexpected then
-        Ok({})
-    else
-        Err(IsEq("$(Inspect.to_str(actual)) should not equal $(Inspect.to_str(unexpected)), but it does."))
+	## Assert two values are equal.
+	##
+	## ```roc
+	## Assert.eq(actual, expected)?
+	## Assert.eq(actual, expected) ? MyTag
+	## ```
+	eq : val, val -> Try({}, [NotEq(Str), ..]) where [val.is_eq : val, val -> Bool]
+	eq = |actual, expected|
+		if actual == expected {
+			Ok({})
+		} else {
+			Err(NotEq("${Str.inspect(actual)} should equal ${Str.inspect(expected)}, but it doesn't."))
+		}
 
-## Assert a Result is Ok, returning the inner value.
-##
-## ```roc
-## value = Assert.ok(result)?
-## value = Assert.ok(result) ? MyTag
-## ```
-ok : Result a err -> Result a [NotOk Str] where err implements Inspect
-ok = |result|
-    when result is
-        Ok(value) -> Ok(value)
-        Err(e) -> Err(NotOk("Expected Ok, but got Err($(Inspect.to_str(e)))."))
+	## Assert two values are not equal.
+	##
+	## ```roc
+	## Assert.not_eq(actual, unexpected)?
+	## Assert.not_eq(actual, unexpected) ? MyTag
+	## ```
+	not_eq : val, val -> Try({}, [IsEq(Str), ..]) where [val.is_eq : val, val -> Bool]
+	not_eq = |actual, unexpected|
+		if actual != unexpected {
+			Ok({})
+		} else {
+			Err(IsEq("${Str.inspect(actual)} should not equal ${Str.inspect(unexpected)}, but it does."))
+		}
 
-## Assert a Result is Err, returning the error.
-##
-## ```roc
-## error = Assert.err(result)?
-## error = Assert.err(result) ? MyTag
-## ```
-err : Result a e -> Result e [NotErr Str] where a implements Inspect
-err = |result|
-    when result is
-        Err(e) -> Ok(e)
-        Ok(value) -> Err(NotErr("Expected Err, but got Ok($(Inspect.to_str(value)))."))
+	## Assert a Try is Ok, returning the inner value.
+	##
+	## ```roc
+	## value = Assert.ok(try)?
+	## value = Assert.ok(try) ? MyTag
+	## ```
+	ok : Try(a, err) -> Try(a, [NotOk(Str), ..])
+	ok = |try|
+		match try {
+			Ok(value) => Ok(value)
+			Err(e) => Err(NotOk("Expected Ok, but got Err(${Str.inspect(e)})."))
+		}
 
-## Assert a Maybe is Just, returning the inner value.
-##
-## ```roc
-## value = Assert.just(maybe)?
-## value = Assert.just(maybe) ? MyTag
-## ```
-just : [Just val, Nothing] -> Result val [NotJust Str]
-just = |maybe|
-    when maybe is
-        Just(value) -> Ok(value)
-        Nothing -> Err(NotJust("Expected Just, but got Nothing."))
+	## Assert a Try is Err, returning the error.
+	##
+	## ```roc
+	## error = Assert.err(try)?
+	## error = Assert.err(try) ? MyTag
+	## ```
+	err : Try(a, e) -> Try(e, [NotErr(Str), ..])
+	err = |try|
+		match try {
+			Err(e) => Ok(e)
+			Ok(value) => Err(NotErr("Expected Err, but got Ok(${Str.inspect(value)})."))
+		}
 
-## Assert a Maybe is Nothing.
-##
-## ```roc
-## Assert.nothing(maybe)?
-## Assert.nothing(maybe) ? MyTag
-## ```
-nothing : [Just val, Nothing] -> Result {} [NotNothing Str] where val implements Inspect
-nothing = |maybe|
-    when maybe is
-        Nothing -> Ok({})
-        Just(value) -> Err(NotNothing("Expected Nothing, but got Just($(Inspect.to_str(value)))."))
+	## Assert a Maybe is Just, returning the inner value.
+	##
+	## ```roc
+	## value = Assert.just(maybe)?
+	## value = Assert.just(maybe) ? MyTag
+	## ```
+	just : [Just(val), Nothing] -> Try(val, [NotJust(Str), ..])
+	just = |maybe|
+		match maybe {
+			Just(value) => Ok(value)
+			Nothing => Err(NotJust("Expected Just, but got Nothing."))
+		}
 
-## Assert a Bool is true.
-##
-## ```roc
-## Assert.true(condition)?
-## Assert.true(condition) ? MyTag
-## ```
-true : Bool -> Result {} [NotTrue Str]
-true = |value|
-    if value then
-        Ok({})
-    else
-        Err(NotTrue("Expected true, but got false."))
+	## Assert a Maybe is Nothing.
+	##
+	## ```roc
+	## Assert.nothing(maybe)?
+	## Assert.nothing(maybe) ? MyTag
+	## ```
+	nothing : [Just(val), Nothing] -> Try({}, [NotNothing(Str), ..])
+	nothing = |maybe|
+		match maybe {
+			Nothing => Ok({})
+			Just(value) => Err(NotNothing("Expected Nothing, but got Just(${Str.inspect(value)})."))
+		}
 
-## Assert a Bool is false.
-##
-## ```roc
-## Assert.false(condition)?
-## Assert.false(condition) ? MyTag
-## ```
-false : Bool -> Result {} [NotFalse Str]
-false = |value|
-    if Bool.not(value) then
-        Ok({})
-    else
-        Err(NotFalse("Expected false, but got true."))
+	## Assert a Bool is true.
+	##
+	## ```roc
+	## Assert.true(condition)?
+	## Assert.true(condition) ? MyTag
+	## ```
+	true : Bool -> Try({}, [NotTrue(Str), ..])
+	true = |value|
+		if value {
+			Ok({})
+		} else {
+			Err(NotTrue("Expected true, but got false."))
+		}
 
-## Assert a List contains an element.
-##
-## ```roc
-## Assert.contains(list, element)?
-## Assert.contains(list, element) ? MyTag
-## ```
-contains : List a, a -> Result {} [DoesNotContain Str] where a implements Inspect & Eq
-contains = |list, element|
-    if List.contains(list, element) then
-        Ok({})
-    else
-        Err(DoesNotContain("List should contain $(Inspect.to_str(element)), but it doesn't."))
+	## Assert a Bool is false.
+	##
+	## ```roc
+	## Assert.false(condition)?
+	## Assert.false(condition) ? MyTag
+	## ```
+	false : Bool -> Try({}, [NotFalse(Str), ..])
+	false = |value|
+		if !value {
+			Ok({})
+		} else {
+			Err(NotFalse("Expected false, but got true."))
+		}
 
-## Assert a List does not contain an element.
-##
-## ```roc
-## Assert.not_contains(list, element)?
-## Assert.not_contains(list, element) ? MyTag
-## ```
-not_contains : List a, a -> Result {} [DoesContain Str] where a implements Inspect & Eq
-not_contains = |list, element|
-    if List.contains(list, element) then
-        Err(DoesContain("List should not contain $(Inspect.to_str(element)), but it does."))
-    else
-        Ok({})
+	## Assert a collection contains an element.
+	##
+	## Constrained on `contains` rather than on `List`, so this works on a
+	## `Str` (substring) as well as on a `List` (element).
+	##
+	## ```roc
+	## Assert.contains([1, 2, 3], 2)?
+	## Assert.contains(body, "alice") ? MyTag
+	## ```
+	contains : coll, elem -> Try({}, [DoesNotContain(Str), ..]) where [coll.contains : coll, elem -> Bool]
+	contains = |collection, element|
+		if collection.contains(element) {
+			Ok({})
+		} else {
+			Err(DoesNotContain("${Str.inspect(collection)} should contain ${Str.inspect(element)}, but it doesn't."))
+		}
 
-## Assert actual is greater than threshold.
-##
-## ```roc
-## Assert.gt(count, 0)?
-## Assert.gt(count, 0) ? MyTag
-## ```
-gt : Num a, Num a -> Result {} [NotGt Str] where a implements Inspect
-gt = |actual, threshold|
-    if actual > threshold then
-        Ok({})
-    else
-        Err(NotGt("$(Inspect.to_str(actual)) should be greater than $(Inspect.to_str(threshold)), but it wasn't."))
+	## Assert a collection does not contain an element.
+	##
+	## Constrained on `contains` rather than on `List`, so this works on a
+	## `Str` (substring) as well as on a `List` (element).
+	##
+	## ```roc
+	## Assert.not_contains([1, 2, 3], 4)?
+	## Assert.not_contains(body, "password") ? MyTag
+	## ```
+	not_contains : coll, elem -> Try({}, [DoesContain(Str), ..]) where [coll.contains : coll, elem -> Bool]
+	not_contains = |collection, element|
+		if collection.contains(element) {
+			Err(DoesContain("${Str.inspect(collection)} should not contain ${Str.inspect(element)}, but it does."))
+		} else {
+			Ok({})
+		}
 
-## Assert actual is greater than or equal to threshold.
-##
-## ```roc
-## Assert.gte(count, 1)?
-## Assert.gte(count, 1) ? MyTag
-## ```
-gte : Num a, Num a -> Result {} [NotGte Str] where a implements Inspect
-gte = |actual, threshold|
-    if actual >= threshold then
-        Ok({})
-    else
-        Err(NotGte("$(Inspect.to_str(actual)) should be greater than or equal to $(Inspect.to_str(threshold)), but it wasn't."))
+	## Assert actual is greater than threshold.
+	##
+	## ```roc
+	## Assert.gt(count, 0)?
+	## Assert.gt(count, 0) ? MyTag
+	## ```
+	gt : a, a -> Try({}, [NotGt(Str), ..]) where [a.is_gt : a, a -> Bool]
+	gt = |actual, threshold|
+		if actual > threshold {
+			Ok({})
+		} else {
+			Err(NotGt("${Str.inspect(actual)} should be greater than ${Str.inspect(threshold)}, but it wasn't."))
+		}
 
-## Assert actual is less than threshold.
-##
-## ```roc
-## Assert.lt(errors, 10)?
-## Assert.lt(errors, 10) ? MyTag
-## ```
-lt : Num a, Num a -> Result {} [NotLt Str] where a implements Inspect
-lt = |actual, threshold|
-    if actual < threshold then
-        Ok({})
-    else
-        Err(NotLt("$(Inspect.to_str(actual)) should be less than $(Inspect.to_str(threshold)), but it wasn't."))
+	## Assert actual is greater than or equal to threshold.
+	##
+	## ```roc
+	## Assert.gte(count, 1)?
+	## Assert.gte(count, 1) ? MyTag
+	## ```
+	gte : a, a -> Try({}, [NotGte(Str), ..]) where [a.is_gte : a, a -> Bool]
+	gte = |actual, threshold|
+		if actual >= threshold {
+			Ok({})
+		} else {
+			Err(NotGte("${Str.inspect(actual)} should be greater than or equal to ${Str.inspect(threshold)}, but it wasn't."))
+		}
 
-## Assert actual is less than or equal to threshold.
-##
-## ```roc
-## Assert.lte(errors, 5)?
-## Assert.lte(errors, 5) ? MyTag
-## ```
-lte : Num a, Num a -> Result {} [NotLte Str] where a implements Inspect
-lte = |actual, threshold|
-    if actual <= threshold then
-        Ok({})
-    else
-        Err(NotLte("$(Inspect.to_str(actual)) should be less than or equal to $(Inspect.to_str(threshold)), but it wasn't."))
+	## Assert actual is less than threshold.
+	##
+	## ```roc
+	## Assert.lt(errors, 10)?
+	## Assert.lt(errors, 10) ? MyTag
+	## ```
+	lt : a, a -> Try({}, [NotLt(Str), ..]) where [a.is_lt : a, a -> Bool]
+	lt = |actual, threshold|
+		if actual < threshold {
+			Ok({})
+		} else {
+			Err(NotLt("${Str.inspect(actual)} should be less than ${Str.inspect(threshold)}, but it wasn't."))
+		}
+
+	## Assert actual is less than or equal to threshold.
+	##
+	## ```roc
+	## Assert.lte(errors, 5)?
+	## Assert.lte(errors, 5) ? MyTag
+	## ```
+	lte : a, a -> Try({}, [NotLte(Str), ..]) where [a.is_lte : a, a -> Bool]
+	lte = |actual, threshold|
+		if actual <= threshold {
+			Ok({})
+		} else {
+			Err(NotLte("${Str.inspect(actual)} should be less than or equal to ${Str.inspect(threshold)}, but it wasn't."))
+		}
+}
 
 # Tests for eq
-expect eq(1, 1) == Ok({})
-expect eq("hello", "hello") == Ok({})
+expect Assert.eq(1, 1) == Ok({})
+expect Assert.eq("hello", "hello") == Ok({})
 expect
-    when eq(1, 2) is
-        Err(NotEq(_)) -> Bool.true
-        _ -> Bool.false
+	match Assert.eq(1, 2) {
+		Err(NotEq(_)) => Bool.True
+		_ => Bool.False
+	}
 
 # Tests for not_eq
-expect not_eq(1, 2) == Ok({})
+expect Assert.not_eq(1, 2) == Ok({})
 expect
-    when not_eq(1, 1) is
-        Err(IsEq(_)) -> Bool.true
-        _ -> Bool.false
+	match Assert.not_eq(1, 1) {
+		Err(IsEq(_)) => Bool.True
+		_ => Bool.False
+	}
 
 # Tests for ok
-expect
-    input : Result U64 Str
-    input = Ok(42)
-    ok(input) == Ok(42)
-expect
-    input : Result U64 Str
-    input = Err("failed")
-    ok(input) |> Result.is_err
+expect {
+	input : Try(U64, Str)
+	input = Ok(42)
+	Assert.ok(input) == Ok(42)
+}
+expect {
+	input : Try(U64, Str)
+	input = Err("failed")
+	Assert.ok(input).is_err()
+}
 
 # Tests for err
-expect
-    input : Result U64 Str
-    input = Err("failed")
-    err(input) == Ok("failed")
-expect
-    input : Result U64 Str
-    input = Ok(42)
-    err(input) |> Result.is_err
+expect {
+	input : Try(U64, Str)
+	input = Err("failed")
+	Assert.err(input) == Ok("failed")
+}
+expect {
+	input : Try(U64, Str)
+	input = Ok(42)
+	Assert.err(input).is_err()
+}
 
 # Tests for just
-expect just(Just(42)) == Ok(42)
-expect just(Nothing) |> Result.is_err
+expect Assert.just(Just(42)) == Ok(42)
+expect Assert.just(Nothing).is_err()
 
 # Tests for nothing
-expect
-    input : [Just U64, Nothing]
-    input = Nothing
-    nothing(input) == Ok({})
-expect
-    input : [Just U64, Nothing]
-    input = Just(42)
-    nothing(input) |> Result.is_err
+expect {
+	input : [Just(U64), Nothing]
+	input = Nothing
+	Assert.nothing(input) == Ok({})
+}
+expect {
+	input : [Just(U64), Nothing]
+	input = Just(42)
+	Assert.nothing(input).is_err()
+}
 
 # Tests for true
-expect true(Bool.true) == Ok({})
-expect true(Bool.false) |> Result.is_err
+expect Assert.true(Bool.True) == Ok({})
+expect Assert.true(Bool.False).is_err()
 
 # Tests for false
-expect false(Bool.false) == Ok({})
-expect false(Bool.true) |> Result.is_err
+expect Assert.false(Bool.False) == Ok({})
+expect Assert.false(Bool.True).is_err()
 
 # Tests for contains
-expect contains([1, 2, 3], 2) == Ok({})
-expect contains([1, 2, 3], 4) |> Result.is_err
-expect contains([], 1) |> Result.is_err
+expect Assert.contains([1, 2, 3], 2) == Ok({})
+expect Assert.contains([1, 2, 3], 4).is_err()
+expect Assert.contains([], 1).is_err()
+expect Assert.contains("alice and bob", "alice") == Ok({})
+expect Assert.contains("alice and bob", "carol").is_err()
 
 # Tests for not_contains
-expect not_contains([1, 2, 3], 4) == Ok({})
-expect not_contains([1, 2, 3], 2) |> Result.is_err
-expect not_contains([], 1) == Ok({})
+expect Assert.not_contains([1, 2, 3], 4) == Ok({})
+expect Assert.not_contains([1, 2, 3], 2).is_err()
+expect Assert.not_contains([], 1) == Ok({})
+expect Assert.not_contains("alice and bob", "carol") == Ok({})
+expect Assert.not_contains("alice and bob", "alice").is_err()
 
 # Tests for gt
-expect gt(5, 3) == Ok({})
-expect gt(3, 3) |> Result.is_err
-expect gt(2, 3) |> Result.is_err
+expect Assert.gt(5, 3) == Ok({})
+expect Assert.gt(3, 3).is_err()
+expect Assert.gt(2, 3).is_err()
 
 # Tests for gte
-expect gte(5, 3) == Ok({})
-expect gte(3, 3) == Ok({})
-expect gte(2, 3) |> Result.is_err
+expect Assert.gte(5, 3) == Ok({})
+expect Assert.gte(3, 3) == Ok({})
+expect Assert.gte(2, 3).is_err()
 
 # Tests for lt
-expect lt(2, 3) == Ok({})
-expect lt(3, 3) |> Result.is_err
-expect lt(5, 3) |> Result.is_err
+expect Assert.lt(2, 3) == Ok({})
+expect Assert.lt(3, 3).is_err()
+expect Assert.lt(5, 3).is_err()
 
 # Tests for lte
-expect lte(2, 3) == Ok({})
-expect lte(3, 3) == Ok({})
-expect lte(5, 3) |> Result.is_err
+expect Assert.lte(2, 3) == Ok({})
+expect Assert.lte(3, 3) == Ok({})
+expect Assert.lte(5, 3).is_err()
