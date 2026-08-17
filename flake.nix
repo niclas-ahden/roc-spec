@@ -10,7 +10,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     roc-src = {
-      url = "github:roc-lang/roc/94cbed386c51a8739ced3be76e7ab7b84dd22852";
+      url = "github:roc-lang/roc/0eadb5da411de33c2fce8cb214b15f88bb6f986d";
       flake = false;
     };
   };
@@ -56,13 +56,9 @@
           inherit version;
           src = roc-src;
 
-          # roc-lang/roc#10562, rebased onto the pin (the PR branches off an
-          # older main and conflicts there, but the only conflicts were the
-          # serialized-layout version bump and its golden hash, both taken
-          # from the PR). It fixes the exponential specialization of open Try
-          # chains (#10529), which otherwise makes builds take minutes. Drop
-          # this once the PR is merged and the pin moves past it.
-          patches = [ ./nix/roc-pr-10562.patch ];
+          # To patch the compiler, drop a diff in nix/ and list it here, e.g.
+          #
+          #   patches = [ ./nix/roc-pr-12345.patch ];
 
           nativeBuildInputs = [ zig ];
 
