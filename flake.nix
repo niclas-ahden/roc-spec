@@ -1,12 +1,6 @@
 {
   description = "roc-spec";
 
-  # The Roc compiler this flake pins is built from source, which takes half an
-  # hour, so it is served from a binary cache instead. Push a new one with:
-  #
-  #   nix build .#roc --no-link --print-out-paths | cachix push niclas-ahden
-  #
-  # after changing flake.lock or the roc derivation below.
   nixConfig = {
     extra-substituters = [ "https://niclas-ahden.cachix.org" ];
     extra-trusted-public-keys = [ "niclas-ahden.cachix.org-1:FdGli1vBk0cTuVJV27Tau/JvlbW+Ly3pRwFByyqdke0=" ];
