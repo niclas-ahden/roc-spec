@@ -6,3 +6,6 @@
 .direnv/
 .envrc
 generated-docs/
+
+# Throwaway Postgres data dir created by tests.roc
+.pg-test-db/

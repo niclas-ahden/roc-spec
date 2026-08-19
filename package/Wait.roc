@@ -55,10 +55,10 @@ Wait :: [].{
 	## ```roc
 	## Wait.until!({ sleep!: Sleep.millis! }, || check_something!(), { max_attempts: 10, delay_ms: 100 }) ? ConditionNotMet
 	## ```
-	until! : _, ({} => Try({}, cond_err)), Attempts => Try({}, [ConditionNotMet(cond_err), ..err])
+	until! : _, (() => Try({}, cond_err)), Attempts => Try({}, [ConditionNotMet(cond_err), ..err])
 	until! = |effects, condition!, { max_attempts, delay_ms }| {
 		sleep! = effects.sleep!
-		match condition!({}) {
+		match condition!() {
 			Ok({}) => Ok({})
 			Err(e) =>
 				if max_attempts <= 1 {
@@ -93,7 +93,7 @@ Wait :: [].{
 	for_server! = |effects, url, config| {
 		http_send! = effects.http_send!
 
-		condition! = |{}| {
+		condition! = || {
 			request =
 				Request.from_method(GET)
 					->Request.with_uri(url)

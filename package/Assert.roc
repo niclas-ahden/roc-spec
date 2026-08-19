@@ -5,6 +5,10 @@
 ## Assert.eq(actual, expected)?
 ## Assert.eq(actual, expected) ? MyTag
 ## ```
+##
+## For values that settle asynchronously (a browser rendering, a server
+## booting), `Assert.eventually` builds a retrying assertion that re-runs a
+## fetch until it matches. See [Assert.eventually] and [Assert.eventually!].
 Assert :: [].{
 
 	## Assert two values are equal.
@@ -204,6 +208,185 @@ Assert :: [].{
 		} else {
 			Err(NotLte("${Str.inspect(actual)} should be less than or equal to ${Str.inspect(threshold)}, but it wasn't."))
 		}
+
+	## Config for [Assert.eventually] and [Assert.eventually!]. Only
+	## `sleep!` is required (basic-cli's `Sleep.millis!` fits), the timeout
+	## and the delays between attempts have defaults.
+	EventuallyConfig : {
+		sleep! : U64 => {},
+		timeout_ms : U64 ?? 5000,
+		intervals_ms : List(U64) ?? [100, 250, 500, 1000],
+	}
+
+	## A configured retrying assertion (see [Assert.eventually]). The
+	## matchers re-run an effectful fetch until it matches, sleeping
+	## between attempts, so they can assert on values that settle
+	## asynchronously: a browser rendering, a server booting, a file
+	## another process writes.
+	Eventually :: {
+		sleep! : U64 => {},
+		timeout_ms : U64,
+		intervals_ms : List(U64),
+	}.{
+
+		## The same matchers with a different timeout, for a one-off
+		## tighter or looser call:
+		## `assert.with_timeout(500).eq!(...)`
+		with_timeout : Eventually, U64 -> Eventually
+		with_timeout = |self, timeout_ms| { ..self, timeout_ms: timeout_ms }
+
+		## Assert the thunk's fetched value eventually passes the check,
+		## returning what the check returns.
+		##
+		## The check judges one fetched snapshot with any of the plain
+		## `Assert` matchers (or anything else returning a `Try`), so
+		## several facts can be asserted about a single consistent value.
+		## Any error inside the check counts as "not yet", which makes
+		## partial reads of still-settling data safe:
+		##
+		## ```roc
+		## assert.eventually!(|| fetch_todos!(), |todos| {
+		##     Assert.eq(todos.len(), 2)?
+		##     # OutOfBounds while the list is short just retries
+		##     Assert.contains(todos.get(1)?, "milk")
+		## }) ? |e| TodosShouldSettle(e)
+		## ```
+		eventually! : Eventually, (() => Try(val, thunk_err)), (val -> Try(out, check_err)) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		eventually! = |self, thunk!, check|
+			poll!(
+				self,
+				thunk!,
+				|outcome| match outcome {
+					Ok(value) => check(value).map_err(|e| Str.inspect(e))
+					Err(e) => Err("Err(${Str.inspect(e)})")
+				},
+			)
+
+		## Assert the thunk eventually returns `Ok` of the expected value.
+		## Sugar for the most common check:
+		##
+		## ```roc
+		## assert.eq!(|| fetch_count!(), "2 items left") ? |e| CountShouldSettle(e)
+		## ```
+		eq! : Eventually, (() => Try(val, thunk_err)), val => Try({}, [Timeout({ last : Str, waited_ms : U64 }), ..]) where [val.is_eq : val, val -> Bool]
+		eq! = |self, thunk!, expected|
+			Eventually.eventually!(self, thunk!, |value| Assert.eq(value, expected))
+
+		## Assert the thunk eventually succeeds, returning what it
+		## returned. For waiting on something to come up:
+		##
+		## ```roc
+		## body = assert.ok!(|| Http.get_utf8!(health_url)) ? |e| ServerShouldBoot(e)
+		## ```
+		ok! : Eventually, (() => Try(val, thunk_err)) => Try(val, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		ok! = |self, thunk!|
+			poll!(
+				self,
+				thunk!,
+				|outcome| match outcome {
+					Ok(value) => Ok(value)
+					Err(e) => Err("Err(${Str.inspect(e)})")
+				},
+			)
+
+		## Assert the thunk eventually errors, returning the error. For
+		## waiting on something to go away: a server shutting down, a
+		## file deleted.
+		err! : Eventually, (() => Try(val, thunk_err)) => Try(thunk_err, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		err! = |self, thunk!|
+			poll!(
+				self,
+				thunk!,
+				|outcome| match outcome {
+					Ok(value) => Err(Str.inspect(value))
+					Err(e) => Ok(e)
+				},
+			)
+
+		# The shared loop: `judge` turns the thunk's latest outcome into
+		# the matcher's result, with an `Err` explaining why this attempt
+		# did not match, kept for the Timeout diagnostics. Only time spent
+		# sleeping counts toward the timeout, and no sleep overshoots it,
+		# so `timeout_ms: 300` sleeps exactly 300ms before giving up (in
+		# delays of 100 then 200).
+		poll! : Eventually, (() => Try(val, thunk_err)), (Try(val, thunk_err) -> Try(out, Str)) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		poll! = |self, thunk!, judge|
+			Eventually.retry!(self, thunk!, judge, 0, self.intervals_ms)
+
+		# `waited_ms` accumulates the sleeps so far, `intervals_ms`
+		# shrinks until its last delay repeats.
+		retry! : Eventually, (() => Try(val, thunk_err)), (Try(val, thunk_err) -> Try(out, Str)), U64, List(U64) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		retry! = |self, thunk!, judge, waited_ms, intervals_ms|
+			match judge(thunk!()) {
+				Ok(out) => Ok(out)
+				Err(last) =>
+					if waited_ms >= self.timeout_ms {
+						Err(Timeout({ last, waited_ms }))
+					} else {
+						(delay, rest) = next_interval(intervals_ms)
+						remaining = self.timeout_ms - waited_ms
+						capped = if delay > remaining remaining else delay
+						sleep! = self.sleep!
+						sleep!(capped)
+						Eventually.retry!(self, thunk!, judge, waited_ms + capped, rest)
+					}
+				}
+
+		## The next delay and the intervals left after it. The last
+		## interval repeats forever, and an empty list falls back to 100ms.
+		next_interval : List(U64) -> (U64, List(U64))
+		next_interval = |intervals_ms| {
+			delay = intervals_ms.first().ok_or(100)
+			rest = if intervals_ms.len() > 1 intervals_ms.drop_first(1) else intervals_ms
+			(delay, rest)
+		}
+	}
+
+	## A retrying assertion for values that settle asynchronously. Build it
+	## once at the top of a test, capturing `sleep!` (basic-cli's
+	## `Sleep.millis!` fits), then assert with it anywhere without passing
+	## `sleep!` again:
+	##
+	## ```roc
+	## assert = Assert.eventually({ sleep!: Sleep.millis! })
+	##
+	## assert.eq!(|| fetch_count!(), "2 items left") ? |e| CountShouldSettle(e)
+	## assert.eventually!(|| fetch_todos!(), |todos| Assert.contains(todos, "milk"))?
+	## body = assert.ok!(|| Http.get_utf8!(url)) ? |e| ServerShouldBoot(e)
+	## ```
+	##
+	## Defaults to a 5s timeout with growing delays of 100/250/500/1000ms
+	## between attempts. Both can be overridden inline:
+	##
+	## ```roc
+	## assert = Assert.eventually({ sleep!: Sleep.millis!, timeout_ms: 500, intervals_ms: [50] })
+	## ```
+	##
+	## A thunk `Err` counts as "not yet", not as failure
+	## (except in `ok!` and `err!`, where the `Try` itself is what is
+	## matched), so polling something that is still starting up works
+	## without special casing. The first match returns immediately, so a
+	## passing assertion never waits. On timeout the error reports why the
+	## last attempt did not match and how long was waited.
+	##
+	## For a single retrying assertion, `Assert.eventually!` skips the
+	## intermediate value.
+	eventually : EventuallyConfig -> Eventually
+	eventually = |config| {
+		sleep!: config.sleep!,
+		timeout_ms: config.timeout_ms,
+		intervals_ms: config.intervals_ms,
+	}
+
+	## One-shot form of [Assert.eventually], for a test with a single
+	## retrying assertion:
+	##
+	## ```roc
+	## Assert.eventually!({ sleep!: Sleep.millis! }, || fetch_count!(), |count| Assert.eq(count, 2))?
+	## ```
+	eventually! : EventuallyConfig, (() => Try(val, thunk_err)), (val -> Try(out, check_err)) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+	eventually! = |config, thunk!, check|
+		Assert.eventually(config).eventually!(thunk!, check)
 }
 
 # Tests for eq
@@ -304,3 +487,10 @@ expect Assert.lt(5, 3).is_err()
 expect Assert.lte(2, 3) == Ok({})
 expect Assert.lte(3, 3) == Ok({})
 expect Assert.lte(5, 3).is_err()
+
+# Tests for Eventually.next_interval: delays are consumed until the last
+# one, which repeats.
+expect Assert.Eventually.next_interval([100, 250, 500]) == (100, [250, 500])
+expect Assert.Eventually.next_interval([250, 500]) == (250, [500])
+expect Assert.Eventually.next_interval([500]) == (500, [500])
+expect Assert.Eventually.next_interval([]) == (100, [])

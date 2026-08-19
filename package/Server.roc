@@ -24,12 +24,12 @@
 ##     env_var!: Env.var_str!,
 ##     # Start the server as its own process group on the given port. This is
 ##     # where you set whatever env vars your server reads its port from.
-##     # Spawn grouped, so the server is killed when the parent exits.
+##     # Spawn leashed, so the server is killed when the parent exits.
 ##     spawn_server!: |cmd, port|
 ##         cmd
 ##             .env_str("PORT", port)
 ##             .env_str("ROC_BASIC_WEBSERVER_PORT", port)
-##             .spawn_grouped!(),
+##             .spawn_leashed!(),
 ##     kill!: Cmd.Child.kill!,
 ##     poll!: Cmd.Child.poll!,
 ##     http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),

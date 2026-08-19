@@ -10,13 +10,13 @@
 ## effects = {
 ##     # Start one test file as its own process group, with the given env vars.
 ##     # The command is yours: change the opt level, wrap tests in systemd-run,
-##     # or run something that is not `roc` at all. Spawn grouped, so that a
+##     # or run something that is not `roc` at all. Spawn leashed, so that a
 ##     # test killed on timeout takes its descendants with it.
 ##     spawn_test!: |file, envs|
 ##         Cmd.new(OsStr.utf8("roc"))
 ##             .args_str(["--opt=speed", file])
 ##             .envs_str(envs)
-##             .spawn_grouped!(),
+##             .spawn_leashed!(),
 ##     poll!: Cmd.Child.poll!,
 ##     kill_wait!: Cmd.Child.kill_wait!,
 ##     # List a directory's entries as path strings, e.g. "tests/foo_test.roc".
@@ -465,7 +465,7 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 }
 
 ## Kill a test that ran out of time and shape what it left behind into a poll
-## result. Killing a grouped child takes down the test and anything it spawned,
+## result. Killing a leashed child takes down the test and anything it spawned,
 ## and hands back whatever it printed before it hung, which is the most useful
 ## part of a timeout report.
 kill_timed_out! = |effects, child| {

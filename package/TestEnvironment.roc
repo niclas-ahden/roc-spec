@@ -78,7 +78,7 @@ TestEnvironment :: [].{
 	## concurrently. Waiting inside the spawn loop would serialize startup:
 	## worker 1 would not even be spawned until worker 0 answered.
 	##
-	## - `spawn!` starts one worker's processes. Use `Cmd.spawn_grouped!` so
+	## - `spawn!` starts one worker's processes. Use `Cmd.spawn_leashed!` so
 	##   they are cleaned up when the test runner exits.
 	## - `ready!` is one cheap readiness probe (a TCP connect, an HTTP GET).
 	##   It is called repeatedly, on every not-yet-ready worker each round.
@@ -92,7 +92,7 @@ TestEnvironment :: [].{
 	##     count: 32,
 	##     spawn!: |index| {
 	##         port = (8000 + index).to_str()
-	##         Cmd.new("./server").env_str("PORT", port).spawn_grouped!().map_ok(|_| {})
+	##         Cmd.new("./server").env_str("PORT", port).spawn_leashed!().map_ok(|_| {})
 	##     },
 	##     ready!: |index| check_health!(8000 + index),
 	##     max_attempts: 150,

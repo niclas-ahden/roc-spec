@@ -1,5 +1,5 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.23.0/7NpDhuqoqGFedmVLvmm1zjq37GCmaFGzwr5sz4ch9wTK.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
 	spec: "../package/main.roc",
 }
 
@@ -16,7 +16,7 @@ effects = {
 		Cmd.new(OsStr.utf8("roc"))
 			.args_str(["--opt=speed", file])
 			.envs_str(envs)
-			.spawn_grouped!(),
+			.spawn_leashed!(),
 	poll!: Cmd.Child.poll!,
 	kill_wait!: Cmd.Child.kill_wait!,
 	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),

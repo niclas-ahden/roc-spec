@@ -14,7 +14,7 @@ A Roc package for writing and running parallel tests with isolated test environm
 
 ```roc
 # tests/math_test.roc
-app [main!] { pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.23.0/7NpDhuqoqGFedmVLvmm1zjq37GCmaFGzwr5sz4ch9wTK.tar.zst" }
+app [main!] { pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst" }
 
 main! = |_|
     if 1 + 1 == 2 {
@@ -29,7 +29,7 @@ main! = |_|
 ```roc
 # run_tests.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.23.0/7NpDhuqoqGFedmVLvmm1zjq37GCmaFGzwr5sz4ch9wTK.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
     spec: "../roc-spec/package/main.roc",
 }
 
@@ -47,7 +47,7 @@ effects = {
         Cmd.new(OsStr.utf8("roc"))
             .args_str(["--opt=speed", file])
             .envs_str(envs)
-            .spawn_grouped!(),
+            .spawn_leashed!(),
     poll!: Cmd.Child.poll!,
     kill_wait!: Cmd.Child.kill_wait!,
     # List a dir as `List(Str)`
@@ -84,7 +84,7 @@ Use `Spec.run_filtered!(effects, "tests", config, "math")` to run only the tests
 
 A test directory that cannot be listed is an error (`TestDirNotFound`) rather than an empty run, so a typo'd path can never produce a green "0/0 passed".
 
-The `spawn_test!` effect above runs each test file with `roc --opt=speed`, so your tests run compiled. Feel free to change the command as you please. You could for example wrap tests in e.g. `systemd-run` for even better control, or run something that is not `roc` at all. Spawn grouped, so that a test killed on timeout takes its descendants with it.
+The `spawn_test!` effect above runs each test file with `roc --opt=speed`, so your tests run compiled. Feel free to change the command as you please. You could for example wrap tests in e.g. `systemd-run` for even better control, or run something that is not `roc` at all. Spawn leashed, so that a test killed on timeout takes its descendants with it.
 
 ## Spawning a server in a test
 
@@ -99,7 +99,7 @@ server_effects = {
         cmd
             ->Cmd.env_str("PORT", port)
             ->Cmd.env_str("ROC_BASIC_WEBSERVER_PORT", port)
-            ->Cmd.spawn_grouped!(),
+            ->Cmd.spawn_leashed!(),
     kill!: Cmd.Child.kill!,
     poll!: Cmd.Child.poll!,
     http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),
@@ -150,7 +150,7 @@ Each returns `Try({}, ...)` (except `ok`, `err` and `just`, which return the val
 ```roc
 # tests/test_users.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.23.0/7NpDhuqoqGFedmVLvmm1zjq37GCmaFGzwr5sz4ch9wTK.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
     spec: "../../roc-spec/package/main.roc",
 }
 
@@ -175,7 +175,7 @@ TestEnvironment.start!({ sleep!: Sleep.millis! }, {
     count: workers,
     spawn!: |index| {
         port = (8000 + index).to_str()
-        Cmd.new("./server").env_str("PORT", port).spawn_grouped!().map_ok(|_| {})
+        Cmd.new("./server").env_str("PORT", port).spawn_leashed!().map_ok(|_| {})
     },
     ready!: |index| check_health!(8000 + index),
     max_attempts: 150,
@@ -183,7 +183,7 @@ TestEnvironment.start!({ sleep!: Sleep.millis! }, {
 })?
 ```
 
-`spawn!` starts one worker's processes (use `spawn_grouped!` so they die with the runner) and `ready!` is one cheap probe, called repeatedly until every worker answers. Workers that never answer are reported in `Err(WorkersNotReady(indices))`.
+`spawn!` starts one worker's processes (use `spawn_leashed!` so they die with the runner) and `ready!` is one cheap probe, called repeatedly until every worker answers. Workers that never answer are reported in `Err(WorkersNotReady(indices))`.
 
 Inside a test, `TestEnvironment.worker_url!` builds the worker's URL from the env the runner sets (`ROC_SPEC_BASE_PORT`, `WORKER_INDEX`, `ROC_SPEC_HOST`). Every `TestEnvironment` function documents exactly which effect fields it needs, so a test that only wants the URL passes `{ env_var!: ... }` and nothing else.
 
@@ -200,7 +200,7 @@ effects = {
 }
 
 # Retry any condition. Gives up with Err(ConditionNotMet(last_error)).
-Wait.until!({ sleep!: Sleep.millis! }, |{}| check_job_finished!(), {
+Wait.until!({ sleep!: Sleep.millis! }, || check_job_finished!(), {
     max_attempts: 10,
     delay_ms: 100,
 })?
@@ -217,6 +217,48 @@ Wait.for_server!(effects, "http://localhost:8000/health", {
 The condition is tried once before any sleeping, so `max_attempts: 10, delay_ms: 100` gives up after roughly 900ms. `headers` is there for reverse proxies that route on `Host`.
 
 `Server.with!` already waits for the server it spawns, so you only need `Wait` for servers it does not manage.
+
+## Asserting on values that settle
+
+`Assert.eventually` is the retrying side of `Assert`: it re-runs an effectful fetch until the fetched value passes a check, sleeping between attempts, and fails with why the last attempt did not match once the timeout is spent. Use it where a plain `Assert.eq` on a fetched value would race whatever produces that value: a browser rendering, an API converging, a file another process writes.
+
+Build it once at the top of a test, capturing `sleep!`, then assert anywhere without passing `sleep!` again:
+
+```roc
+import spec.Assert
+
+main! = |_args| {
+    # Defaults to a 5s timeout with growing delays of 100/250/500/1000ms.
+    # Both can be overridden inline: { sleep!: ..., timeout_ms: 500, intervals_ms: [50] }
+    assert = Assert.eventually({ sleep!: Sleep.millis! })
+
+    # The common case: eventually equal
+    assert.eq!(|| fetch_count!(), "2 items left") ? |e| CountShouldSettle(e)
+
+    # The general form: any check against one fetched snapshot, using the
+    # plain Assert matchers. An error inside the check counts as "not yet",
+    # so indexing into still-settling data with ? is safe.
+    assert.eventually!(|| fetch_todos!(), |todos| {
+        Assert.eq(todos.len(), 2)?
+        Assert.contains(todos.get(1)?, "milk")
+    }) ? |e| TodosShouldSettle(e)
+
+    # Polarity matchers: wait for something to come up or go away.
+    # ok! and eventually! return a value, so the settled result flows on.
+    body = assert.ok!(|| Http.get_utf8!(health_url)) ? |e| ServerShouldBoot(e)
+    assert.err!(|| Http.get_utf8!(stopped_url)) ? |e| OldServerShouldStop(e)
+
+    # A one-off tighter timeout
+    assert.with_timeout(500).eq!(|| read_status!(), "done")?
+    Ok({})
+}
+```
+
+For a test with a single retrying assertion, the one-shot form skips the setup: `Assert.eventually!({ sleep!: Sleep.millis! }, || fetch!(), |v| Assert.eq(v, "ok"))?`
+
+A thunk `Err` counts as "not yet" rather than failure (except in `ok!` and `err!`, where the `Try` itself is what is matched), so polling something that is still starting up needs no special casing. The first match returns immediately, so a passing assertion never waits. On timeout the error is `Timeout({ last, waited_ms })`, where `last` explains the final attempt: the check's own error message (`NotEq("...")` and friends already name both sides), or `Err(...)` if the thunk was still erroring.
+
+`Wait.until!` and `Assert.eventually` overlap on purpose: reach for `Wait` when you are waiting on a condition or a server, and for `Assert.eventually` when you are asserting that a value settles into a shape, and want the failure to read like an assertion.
 
 ## PostgreSQL integration tests
 

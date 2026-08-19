@@ -6,7 +6,9 @@
 ## around that: assertions, a managed server, per-worker ports and databases.
 ##
 ## - `Spec`: discover and run test files in parallel. Start here.
-## - `Assert`: assertions that return `Try`, so they chain with `?`.
+## - `Assert`: assertions that return `Try`, so they chain with `?`. Its
+##   `Assert.eventually` builds a retrying assertion for values that settle
+##   asynchronously.
 ## - `Server`: spawn a server, wait for it, kill it when the test ends.
 ## - `TestEnvironment`: start N worker environments, and read the per-worker
 ##   port and URL from inside a test.
