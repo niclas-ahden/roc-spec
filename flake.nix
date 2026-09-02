@@ -10,7 +10,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     roc-src = {
-      url = "github:roc-lang/roc/c129b599313a71e28fe2fdc03f778350d69aaab6";
+      url = "github:roc-lang/roc";
       flake = false;
     };
   };
@@ -67,10 +67,12 @@
           buildPhase = ''
             export HOME=$TMPDIR
 
+            # ReleaseFast, not ReleaseSafe, because of roc-lang/roc#11059.
+            #
             # `--system` points Zig at the prevendored package set (looked up by
             # bare hash), so the build never touches the network. Zig still
             # wants writable cache dirs, so keep those under $TMPDIR.
-            zig build roc -Doptimize=ReleaseSafe \
+            zig build roc -Doptimize=ReleaseFast \
               --system ${roc-deps} \
               --cache-dir $TMPDIR/zig-local-cache \
               --global-cache-dir $TMPDIR/zig-global-cache

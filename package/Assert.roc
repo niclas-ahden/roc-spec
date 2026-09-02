@@ -212,7 +212,7 @@ Assert :: [].{
 	## Config for [Assert.eventually] and [Assert.eventually!]. Only
 	## `sleep!` is required (basic-cli's `Sleep.millis!` fits), the timeout
 	## and the delays between attempts have defaults.
-	EventuallyConfig : {
+	EventuallyConfig := {
 		sleep! : U64 => {},
 		timeout_ms : U64 ?? 5000,
 		intervals_ms : List(U64) ?? [100, 250, 500, 1000],

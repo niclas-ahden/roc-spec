@@ -108,10 +108,11 @@ Spec :: [].{
 	## stable order. With `fail_fast`, tests that never started are absent
 	## entirely, so the list can be shorter than the number of files discovered.
 	##
-	## The `effects` record is left unannotated because its fields are shaped by
-	## your platform's own types (the process handle `spawn_test!` returns, the
-	## instant `utc_now!` returns). See the module docs above for one built from
-	## basic-cli.
+	## The `effects` record is left unannotated because some of its fields are
+	## shaped by your platform's own types, like the process handle
+	## `spawn_test!` returns. The exception is `utc_now!`, which is pinned to
+	## `() => U128`, an instant in nanoseconds. See the module docs above for one
+	## built from basic-cli.
 	run! : _, Str, Config(cfg_err) => Try(List(TestResult), Error(err))
 	run! = |effects, test_dir, config|
 		Spec.run_filtered!(effects, test_dir, config, "")
@@ -190,26 +191,27 @@ get_basename = |path|
 
 ## Order two strings by their UTF-8 bytes.
 ##
-## There is no `Str.compare` builtin, and sorting needs a total order rather
-## than a locale-aware one: the point is that every machine agrees.
-compare_str : Str, Str -> [LT, EQ, GT]
+## There is no `Str.order_relative_to` builtin, and sorting needs a total
+## order rather than a locale-aware one: the point is that every machine
+## agrees.
+compare_str : Str, Str -> [Before, Same, After]
 compare_str = |a, b|
 	compare_bytes(a.to_utf8(), b.to_utf8())
 
-compare_bytes : List(U8), List(U8) -> [LT, EQ, GT]
+compare_bytes : List(U8), List(U8) -> [Before, Same, After]
 compare_bytes = |a, b|
 	match a {
-		[] => if b.is_empty() EQ else LT
+		[] => if b.is_empty() Same else Before
 
 		[first_a, .. as rest_a] =>
 			match b {
-				[] => GT
+				[] => After
 
 				[first_b, .. as rest_b] =>
-					match first_a.compare(first_b) {
-						EQ => compare_bytes(rest_a, rest_b)
-						LT => LT
-						GT => GT
+					match first_a.order_relative_to(first_b) {
+						Same => compare_bytes(rest_a, rest_b)
+						Before => Before
+						After => After
 					}
 				}
 		}
@@ -406,6 +408,7 @@ find_completed! = |effects, running, config|
 
 find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 	poll! = effects.poll!
+	utc_now! : () => U128
 	utc_now! = effects.utc_now!
 
 	match remaining {
@@ -483,13 +486,14 @@ kill_timed_out! = |effects, child| {
 			}
 
 		Err(e) =>
-			TimedOut({ stdout: [], stderr: [], kill_error: "could not kill it: ${Str.inspect(e)}" })
+			TimedOut({ stdout: [], stderr: [], kill_error: describe("could not kill it: ", e) })
 		}
 }
 
 ## Process a poll result into a TestResult.
 process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 	print! = effects.print!
+	utc_now! : () => U128
 	utc_now! = effects.utc_now!
 
 	end_time = utc_now!()
@@ -597,6 +601,7 @@ spawn_batch_helper! = |effects, remaining, config, acc|
 spawn_one! = |effects, test_file, worker_index, config| {
 	spawn_test! = effects.spawn_test!
 	print! = effects.print!
+	utc_now! : () => U128
 	utc_now! = effects.utc_now!
 	before_each! = config.before_each!
 	worker_envs = config.worker_envs
@@ -613,7 +618,7 @@ spawn_one! = |effects, test_file, worker_index, config| {
 				passed: Bool.False,
 				duration_ms: 0,
 				output: "",
-				error: "before_each! failed: ${Str.inspect(e)}",
+				error: describe("before_each! failed: ", e),
 			})
 		}
 
@@ -637,10 +642,21 @@ spawn_one! = |effects, test_file, worker_index, config| {
 						passed: Bool.False,
 						duration_ms: 0,
 						output: "",
-						error: "Failed to spawn process: ${Str.inspect(e)}",
+						error: describe("Failed to spawn process: ", e),
 					})
 				}
 			}
 		}
 	}
 }
+
+## Describe an error value from the caller's `effects` or `Config`.
+##
+## WORKAROUND for roc-lang/roc#11060: the obvious `"prefix: ${Str.inspect(e)}"`
+## panics `roc build` with "reached unreachable code" when `e`'s type arrives
+## through the inferred `effects` record rather than being known here.
+## Concatenating the two halves compiles. Inline the interpolation at the three
+## call sites and drop this helper once that issue is fixed.
+describe : Str, err -> Str
+describe = |prefix, e|
+	Str.concat(prefix, Str.inspect(e))
