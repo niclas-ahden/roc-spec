@@ -185,9 +185,18 @@ Spec :: [].{
 	}
 }
 
+## Windows lists a directory with a backslash between the directory you passed
+## and each entry, so a name would otherwise keep the whole path. Names use `/`
+## on every OS. `path` keeps whatever the OS said, since that is what runs.
+normalize_separators : Str -> Str
+normalize_separators = |path| path.replace_each("\\", "/")
+
 get_basename : Str -> Str
 get_basename = |path|
-	path.split_on("/").last().ok_or(path)
+	normalize_separators(path).split_on("/").last().ok_or(path)
+
+expect get_basename("tests/nested/foo_test.roc") == "foo_test.roc"
+expect get_basename("examples/tests\\math_test.roc") == "math_test.roc"
 
 ## Order two strings by their UTF-8 bytes.
 ##
@@ -223,12 +232,19 @@ compare_bytes = |a, b|
 ## name does not shift when the same tests are reached by a deeper path.
 extract_test_name : Str, Str -> Str
 extract_test_name = |file, test_dir| {
-	without_extension = file.drop_suffix(".roc")
-	prefix = if test_dir.ends_with("/") test_dir else "${test_dir}/"
+	without_extension = normalize_separators(file).drop_suffix(".roc")
+	dir = normalize_separators(test_dir)
+	prefix = if dir.ends_with("/") dir else "${dir}/"
 	# A path that does not start with the prefix keeps its full name rather
 	# than being trimmed to something misleading.
 	without_extension.drop_prefix(prefix)
 }
+
+expect extract_test_name("tests/fill/nested/foo_test.roc", "tests") == "fill/nested/foo_test"
+expect extract_test_name("tests/foo_test.roc", "tests/") == "foo_test"
+expect extract_test_name("examples/tests\\math_test.roc", "examples/tests") == "math_test"
+expect extract_test_name("tests\\nested\\foo_test.roc", "tests") == "nested/foo_test"
+expect extract_test_name("elsewhere/foo_test.roc", "tests") == "elsewhere/foo_test"
 
 ## Recursively find all test files in a directory and its subdirectories.
 find_test_files_recursive! = |effects, dir, acc| {
