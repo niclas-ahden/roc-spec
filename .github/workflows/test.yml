@@ -7,6 +7,36 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # The release gate: roc check, roc test, the bundle sanity check and
+  # ./tests.roc under the flake's compiler.
+  #
+  # No examples here. A Nix job's compiler is not on the PATH, and the
+  # examples spawn `roc` by name. The nightly legs below run them.
   test:
-    uses: niclas-ahden/roc-workflows/.github/workflows/test.yml@v2
+    name: Required
+    uses: niclas-ahden/roc-workflows/.github/workflows/test.yml@v3
+    with:
+      examples: ''
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+  roc-versions:
+    name: 'Optional: look up Roc versions'
+    uses: niclas-ahden/roc-workflows/.github/workflows/resolve-versions.yml@v3
+
+  # Node for tests/server_fixtures/working_server.mjs. The PostgreSQL tests
+  # skip themselves when initdb is not on the PATH.
+  latest-roc:
+    name: 'Optional: latest Roc'
+    needs: roc-versions
+    uses: niclas-ahden/roc-workflows/.github/workflows/suite.yml@v3
+    with:
+      roc: ${{ needs.roc-versions.outputs.nightly }}
+      label: Tests
+      opts: '["speed", "dev", "size", "interpreter"]'
+      node: true
