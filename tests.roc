@@ -36,9 +36,11 @@ unit_files : List(Str)
 unit_files = ["package/Assert.roc", "package/Format.roc"]
 
 ## Need a PostgreSQL server. Skipped when there is neither a DATABASE_URL nor
-## an initdb to boot one with.
+## an initdb to boot one with. Matched on the filename rather than the whole
+## path, because the directory part of a listing carries the platform's own
+## separator.
 pg_tests : List(Str)
-pg_tests = ["tests/rollback_test.roc", "tests/truncate_test.roc"]
+pg_tests = ["rollback_test.roc", "truncate_test.roc"]
 
 ## Not using port 5432 since we don't want to collide with other databases
 ## you may be running.
@@ -120,14 +122,14 @@ main! = |os_args| {
 	Stdout.line!("--- Building server fixtures")?
 	fixtures = list_roc_files!("tests/server_fixtures")?
 	for fixture in fixtures {
-		Stdout.line!("Building ${fixture}...")?
-		binary = fixture.drop_suffix(".roc")
+		Stdout.line!("Building ${fixture.path}...")?
+		binary = fixture.path.drop_suffix(".roc")
 		# roc build exits 2 when there are only warnings; the binary is still
 		# produced, so treat that as success.
-		code = roc_exit_code!(["build", fixture, "--output=${binary}"])?
+		code = roc_exit_code!(["build", fixture.path, "--output=${binary}"])?
 		if code != 0 and code != 2 {
-			Stderr.line!("FAILED to build: ${fixture}")?
-			return Err(FixtureBuildFailed(fixture))
+			Stderr.line!("FAILED to build: ${fixture.path}")?
+			return Err(FixtureBuildFailed(fixture.path))
 		} else {}
 	}
 
@@ -149,22 +151,21 @@ main! = |os_args| {
 	var $skipped = []
 	var $failed = []
 
-	for file in test_files {
-		basename = file.split_on("/").last().ok_or(file)
-		is_test = basename.ends_with("_test.roc")
-		is_pg = pg_tests.contains(file)
+	for entry in test_files {
+		is_test = entry.name.ends_with("_test.roc")
+		is_pg = pg_tests.contains(entry.name)
 
 		if !is_test {
 			{}
 		} else if is_pg and !run_pg_tests {
-			$skipped = $skipped.append(file)
+			$skipped = $skipped.append(entry.path)
 		} else {
-			Stdout.line!("Running ${file}...")?
+			Stdout.line!("Running ${entry.path}...")?
 			run_result =
 				if use_systemd {
-					exit_code!("systemd-run", ["--scope", "--user", "roc", file], test_env)
+					exit_code!("systemd-run", ["--scope", "--user", "roc", entry.path], test_env)
 				} else {
-					exit_code!("roc", [file], test_env)
+					exit_code!("roc", [entry.path], test_env)
 				}
 			# A test killed by a signal (a panic, an OOM killer) leaves no exit
 			# code to read. That is one failing test, not a reason to abandon
@@ -179,13 +180,13 @@ main! = |os_args| {
 					}
 				}
 			if code != 0 {
-				Stderr.line!("FAILED: ${file}")?
+				Stderr.line!("FAILED: ${entry.path}")?
 				if fail_fast {
 					Stderr.line!("Stopping due to --fail-fast")?
 					stop_pg!(server)
-					return Err(TestFailed(file))
+					return Err(TestFailed(entry.path))
 				} else {}
-				$failed = $failed.append(file)
+				$failed = $failed.append(entry.path)
 			} else {}
 		}
 	}
@@ -353,9 +354,22 @@ exit_code! = |program, arguments, extra_env| {
 	cmd.exec_exit_code!()
 }
 
-## The .roc files directly inside `dir` (directory listing order).
-list_roc_files! : Str => Try(List(Str), _)
+## The .roc files directly inside `dir` (directory listing order), each with
+## the filename that the platform's own separator rules give it.
+##
+## `Path.filename` is the separator-aware step, and it only works while the
+## value is still a `Path`: a Windows listing hands back `Windows` paths
+## joined with a backslash, which are just ordinary characters once
+## `Path.display` has flattened them into a `Str`.
+list_roc_files! : Str => Try(List({ path : Str, name : Str }), _)
 list_roc_files! = |dir| {
 	entries = Path.list!(Path.utf8(dir)) ? |e| FailedToListDir(dir, e)
-	Ok(entries.map(|p| Path.display(p)).keep_if(|name| name.ends_with(".roc")))
+	named =
+		entries.map(
+			|p| {
+				path: Path.display(p),
+				name: Path.filename(p).map_ok(|f| Path.display(f)).ok_or(Path.display(p)),
+			},
+		)
+	Ok(named.keep_if(|entry| entry.name.ends_with(".roc")))
 }
