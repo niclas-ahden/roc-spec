@@ -30,7 +30,7 @@ main! = |_|
 # run_tests.roc
 app [main!] {
     pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
-    spec: "../roc-spec/package/main.roc",
+    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.4.0/7fpzAnSVtkGcXL3dCsoK3j6wtebcEYiSSbGEpAMMnZbE.tar.zst",
 }
 
 import pf.Cmd
@@ -151,7 +151,7 @@ Each returns `Try({}, ...)` (except `ok`, `err` and `just`, which return the val
 # tests/test_users.roc
 app [main!] {
     pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
-    spec: "../../roc-spec/package/main.roc",
+    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.5.0/FcrX3NPAD9yVocXvrtfXF25GU25Aaw97UJH7nxnVvgqP.tar.zst",
 }
 
 import spec.Assert

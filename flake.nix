@@ -9,7 +9,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    roc-src.url = "github:roc-lang/roc/1099ad3521ea4f3b75de9b25082e913e48e1687f?dir=src";
+    roc-src.url = "github:roc-lang/roc/7eaf361a105e2da5d83e999a7e7aa2f70f75012c?dir=src";
     roc-nix = {
       url = "github:niclas-ahden/roc-nix";
       inputs.nixpkgs.follows = "nixpkgs";
