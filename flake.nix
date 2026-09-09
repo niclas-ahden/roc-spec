@@ -10,7 +10,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     # The Roc compiler revision, keep the `?dir=src` at the end
-    roc-src.url = "github:roc-lang/roc/756a5c201505f08d36cf1f5174f847a300338fa8?dir=src";
+    roc-src.url = "github:roc-lang/roc/7dadc352f5985df6e8b158d0393ffe86ab8b4c62?dir=src";
     roc-nix = {
       url = "github:niclas-ahden/roc-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -22,6 +22,14 @@
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ] (system:
       let
         pkgs = import nixpkgs { inherit system; };
+
+        # Builds Roc using `ReleaseFast`. To chase a suspected compiler fault,
+        # build a `ReleaseSafe` variant of the same revision:
+        #
+        #   roc-nix.lib.${system}.mkRoc { optimize = "ReleaseSafe"; }
+        #
+        # roc-nix's README lists the rest of the build options, patches
+        # included.
         roc = roc-nix.packages.${system}.roc;
       in
       {

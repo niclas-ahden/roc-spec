@@ -21,7 +21,7 @@
 ##
 ## Pass --fail-fast to stop at the first failing test.
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 }
 
 import pf.Cmd
@@ -247,9 +247,10 @@ start_pg! = |data| {
 	# The socket dir is pointed into the data dir because the default
 	# (/run/postgresql) is not writable in CI or in the nix dev shell.
 	#
-	# logging_collector sends the server's log to <data>/log rather than to the
-	# pipes spawn_leashed! hands back, which keeps it off the suite's output and
-	# leaves it on disk for a post-mortem.
+	# logging_collector sends the server's log to <data>/log, which keeps it
+	# off the suite's output and leaves it on disk for a post-mortem. What
+	# little reaches stderr before the collector takes over is captured, so a
+	# server that dies at startup can say why; stdout is not worth keeping.
 	child =
 		Cmd.new(OsStr.utf8("postgres"))
 			.args_str([
@@ -264,7 +265,9 @@ start_pg! = |data| {
 				"-c",
 				"logging_collector=on",
 			])
-			.spawn_leashed!()?
+			.stdout(Null)
+			.stderr(Capture)
+			.spawn_leashed!() ? |e| PgSpawnFailed(e)
 
 	wait_for_pg!(child, 200)?
 	Ok(child)
@@ -277,7 +280,7 @@ stop_pg! : [Started(Cmd.Child), NoServer] => {}
 stop_pg! = |server|
 	match server {
 		Started(child) =>
-			match child.kill!() {
+			match child.close!() {
 				Ok({}) => {}
 				Err(_) => {}
 			}
@@ -295,12 +298,12 @@ wait_for_pg! = |child, attempts|
 	if attempts == 0 {
 		Err(PgNeverBecameReady)
 	} else {
-		match child.poll!()? {
-			Exited(exit) => Err(PgDiedAtStartup({
-				exit_code: exit.exit_code,
-				stderr: Str.from_utf8_lossy(exit.stderr),
+		match child.try_wait!() ? |e| PgPollFailed(e) {
+			[exit, ..] => Err(PgDiedAtStartup({
+				status: exit.status,
+				stderr: Str.from_utf8_lossy(exit.stderr_bytes),
 			}))
-			Running => {
+			[] => {
 				if pg_is_ready!() {
 					Ok({})
 				} else {

@@ -1,29 +1,12 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Cmd
-import pf.Env
-import pf.OsStr
-import pf.Http
-import pf.Url
-import pf.Sleep
 import pf.Stdout
 import spec.Server
-
-server_effects = {
-	env_var!: Env.var_str!,
-	spawn_server!: |cmd, port|
-		cmd
-			->Cmd.env_str("PORT", port)
-			->Cmd.env_str("ROC_BASIC_WEBSERVER_PORT", port)
-			->Cmd.spawn_leashed!(),
-	kill!: Cmd.Child.kill!,
-	poll!: Cmd.Child.poll!,
-	http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),
-	sleep!: Sleep.millis!,
-}
+import Effects
 
 # The working server fixture is a node script (there is no basic-webserver
 # platform for the new compiler yet).
@@ -33,7 +16,7 @@ working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working
 # Expected: Server.with! returns ServerCrashed error with stderr output
 main! = |_args| {
 	result = Server.with!(
-		server_effects,
+		Effects.server,
 		Cmd.new("tests/server_fixtures/crash_server"),
 		|_base_url| {
 			# This callback should never be called since server crashes
@@ -43,13 +26,13 @@ main! = |_args| {
 	)
 
 	match result {
-		Err(ServerCrashed({ exit_code, stderr })) =>
-		# Verify exit_code is non-zero (crashed)
-			if exit_code == 0 {
-				Stdout.line!("FAIL: ServerCrashed but exit_code is 0")?
+		Err(ServerCrashed({ status, stderr })) =>
+		# Verify the server did not exit cleanly (crashed)
+			if status == Exited(0) {
+				Stdout.line!("FAIL: ServerCrashed but the exit code is 0")?
 				Err(WrongExitCode)
 			} else if stderr.contains("CRASH: Server failed to start") {
-				Stdout.line!("PASS: Server crash detected with correct stderr and non-zero exit_code (${exit_code.to_str()})")
+				Stdout.line!("PASS: Server crash detected with correct stderr and status ${Str.inspect(status)}")
 			} else {
 				Stdout.line!("FAIL: ServerCrashed but stderr doesn't contain expected message")?
 				Stdout.line!("Got stderr: ${stderr}")?

@@ -1,36 +1,18 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
-import pf.Cmd
-import pf.OsStr
-import pf.Path
-import pf.Sleep
 import pf.Stdout
-import pf.Utc
 import spec.Spec
-
-effects = {
-	spawn_test!: |file, envs|
-		Cmd.new(OsStr.utf8("roc"))
-			.args_str(["--opt=speed", file])
-			.envs_str(envs)
-			.spawn_leashed!(),
-	poll!: Cmd.Child.poll!,
-	kill_wait!: Cmd.Child.kill_wait!,
-	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
-	print!: Stdout.line!,
-	utc_now!: Utc.now!,
-	sleep_millis!: Sleep.millis!,
-}
+import Effects
 
 ## The other server tests run `Server.with!` directly, so they only ever
 ## exercise it interpreted. This one goes through `Spec.run!`, which spawns
 ## the fixture with `roc --opt=speed`, and is therefore the only coverage of
 ## `Server.with!` in a compiled app. That combination used to hit
 ## roc-lang/roc#10370 (effects stored as bare record-field references ran at
-## spawn time), so the fixture passes `kill!` as a bare reference on purpose.
+## spawn time), so the fixture passes `close!` as a bare reference on purpose.
 main! = |_args| {
 	# One fixture, so one worker. The port comes from the worker convention:
 	# worker 0 gets 9100.
@@ -46,12 +28,12 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results = Spec.run!(effects, "tests/server_spec_fixtures", config)?
+	results = Spec.run!(Effects.spec, "tests/server_spec_fixtures", config)?
 
 	match results.first() {
 		Ok(result) =>
 			if result.passed {
-				Stdout.line!("PASS: Server.with! works compiled with kill! as a bare reference")
+				Stdout.line!("PASS: Server.with! works compiled with close! as a bare reference")
 			} else {
 				Stdout.line!("FAIL: The server spec failed (has roc-lang/roc#10370 regressed?):")?
 				Stdout.line!(result.output)?

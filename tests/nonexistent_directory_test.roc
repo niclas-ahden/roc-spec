@@ -1,29 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
-import pf.Cmd
-import pf.OsStr
-import pf.Path
-import pf.Sleep
 import pf.Stdout
-import pf.Utc
 import spec.Spec
-
-effects = {
-	spawn_test!: |file, envs|
-		Cmd.new(OsStr.utf8("roc"))
-			.args_str(["--opt=speed", file])
-			.envs_str(envs)
-			.spawn_leashed!(),
-	poll!: Cmd.Child.poll!,
-	kill_wait!: Cmd.Child.kill_wait!,
-	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
-	print!: Stdout.line!,
-	utc_now!: Utc.now!,
-	sleep_millis!: Sleep.millis!,
-}
+import Effects
 
 no_envs = |_index| []
 
@@ -39,7 +21,7 @@ main! = |_args| {
 
 	# Run on nonexistent directory - must error, so a typo'd test_dir can
 	# never produce a green "0/0 passed" run
-	match Spec.run!(effects, "tests/this_directory_does_not_exist_12345", config) {
+	match Spec.run!(Effects.spec, "tests/this_directory_does_not_exist_12345", config) {
 		Err(TestDirNotFound(dir)) =>
 			if dir == "tests/this_directory_does_not_exist_12345" {
 				Stdout.line!("PASS: Nonexistent directory returns Err(TestDirNotFound) with the directory")

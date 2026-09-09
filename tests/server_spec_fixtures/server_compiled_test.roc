@@ -1,14 +1,14 @@
 ## Fixture for tests/server_under_spec_test.roc: `Server.with!` in a COMPILED
 ## app, since `Spec.run!` spawns every test with `roc --opt=speed`.
 ##
-## The bare `kill!: Cmd.Child.kill!` and `env_var!: Env.var_str!` references
+## The bare `close!: Cmd.Child.close!` and `env_var!: Env.var_str!` references
 ## below are deliberate. They are the regression coverage for two fixed
 ## compiler bugs: roc-lang/roc#10370 (effect reordering in the optimizing
 ## backend, which ran the kill at spawn time and left the readiness poll
 ## waiting on a dead server) and roc-lang/roc#10321 (string literals not
 ## coerced through first-class calls to functions taking OsStr).
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../../package/main.roc",
 }
 
@@ -27,9 +27,11 @@ server_effects = {
 		cmd
 			->Cmd.env_str("PORT", port)
 			->Cmd.env_str("ROC_BASIC_WEBSERVER_PORT", port)
+			->Cmd.stdout(Capture)
+			->Cmd.stderr(Capture)
 			->Cmd.spawn_leashed!(),
-	kill!: Cmd.Child.kill!,
-	poll!: Cmd.Child.poll!,
+	close!: Cmd.Child.close!,
+	try_wait!: Cmd.Child.try_wait!,
 	http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),
 	sleep!: Sleep.millis!,
 }

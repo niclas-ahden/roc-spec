@@ -49,23 +49,32 @@ TestEnvironment :: [].{
 	]
 
 	## Starting workers fails either because a `spawn!` failed (`err`, your
-	## own error) or because some worker never became ready.
-	StartError(err) : [
-		WorkersNotReady(List(U16)),
+	## own error, passed through unchanged) or because some worker never
+	## became ready.
+	##
+	## `WorkersNotReady` carries the indices that never answered and every
+	## handle `spawn!` returned, in index order, so the runner can ask the
+	## silent workers how they ended (`Cmd.Child.try_wait!` gives an exit
+	## status and captured output). A managed child is terminated when its
+	## last reference is released, so a handle dropped inside `start!` would
+	## be gone before the error reached the caller.
+	StartError(handle, err) : [
+		WorkersNotReady({ not_ready : List(U16), handles : List(handle) }),
 		..err,
 	]
 
 	## The worker environments to start.
 	##
 	## - `count`: how many workers to run
-	## - `spawn!`: starts one worker's processes, given its index. Its error
-	##   propagates out of `start!` unchanged.
+	## - `spawn!`: starts one worker's processes, given its index, and hands
+	##   back whatever keeps them alive (a `Cmd.Child`, or a record of them).
+	##   Its error propagates out of `start!` unchanged.
 	## - `ready!`: one cheap readiness probe for a worker
 	## - `max_attempts`/`delay_ms`: probe rounds and the gap between them, so
 	##   the ceiling is `max_attempts * delay_ms`
-	Workers(err) : {
+	Workers(handle, err) : {
 		count : U16,
-		spawn! : U16 => Try({}, StartError(err)),
+		spawn! : U16 => Try(handle, StartError(handle, err)),
 		ready! : U16 => Bool,
 		max_attempts : U64,
 		delay_ms : U64,
@@ -79,40 +88,62 @@ TestEnvironment :: [].{
 	## worker 1 would not even be spawned until worker 0 answered.
 	##
 	## - `spawn!` starts one worker's processes. Use `Cmd.spawn_leashed!` so
-	##   they are cleaned up when the test runner exits.
+	##   they are cleaned up when the test runner exits, and return the
+	##   `Cmd.Child`: a managed child is terminated when its last reference
+	##   is released, so `start!` hands the handles back, one per worker in
+	##   index order, for the runner to keep until the run is done. Roc
+	##   releases a binding after its last use, so a `servers` that is never
+	##   read again is released as soon as `start!` returns, and the workers
+	##   are gone before the first test starts. Closing them after the run,
+	##   as below, is what keeps them alive until then.
 	## - `ready!` is one cheap readiness probe (a TCP connect, an HTTP GET).
 	##   It is called repeatedly, on every not-yet-ready worker each round.
 	## - After `max_attempts` rounds, the not-ready worker indices are
-	##   reported in `Err(WorkersNotReady(indices))`.
+	##   reported in `Err(WorkersNotReady({ not_ready, handles }))`, together
+	##   with every handle, so the runner can inspect the workers that never
+	##   answered. A `spawn!` failure returns its error as is. The workers
+	##   spawned before it are released on the way out, which terminates them.
 	##
 	## Effects used: `{ sleep! }`.
 	##
 	## ```roc
-	## TestEnvironment.start!({ sleep!: Sleep.millis! }, {
+	## servers = TestEnvironment.start!({ sleep!: Sleep.millis! }, {
 	##     count: 32,
 	##     spawn!: |index| {
 	##         port = (8000 + index).to_str()
-	##         Cmd.new("./server").env_str("PORT", port).spawn_leashed!().map_ok(|_| {})
+	##         Cmd.new("./server").env_str("PORT", port).spawn_leashed!() ? |e| SpawnFailed(e)
 	##     },
 	##     ready!: |index| check_health!(8000 + index),
 	##     max_attempts: 150,
 	##     delay_ms: 200,
 	## })?
+	##
+	## results = Spec.run!(effects, "tests", config)?
+	##
+	## # Holding the handles until here kept the servers up for the run.
+	## # Close them now that it is over.
+	## for server in servers {
+	##     _ = Cmd.Child.close!(server)
+	## }
 	## ```
-	start! : _, Workers(err) => Try({}, StartError(err))
+	start! : _, Workers(handle, err) => Try(List(handle), StartError(handle, err))
 	start! = |effects, { count, spawn!: inner_spawn!, ready!: inner_ready!, max_attempts, delay_ms }| {
 		# Phase 1: spawn everything.
+		var $handles = []
 		var $pending = []
 		var $index = 0.U16
 		while $index < count {
-			inner_spawn!($index)?
+			$handles = $handles.append(inner_spawn!($index)?)
 			$pending = $pending.append($index)
 			$index = $index + 1
 		}
 
 		# Phase 2: probe all not-yet-ready workers each round, until none are
 		# left or the rounds run out.
-		wait_for_workers!(effects, inner_ready!, $pending, 0, max_attempts, delay_ms)
+		match wait_for_workers!(effects, inner_ready!, $pending, 0, max_attempts, delay_ms) {
+			Ok({}) => Ok($handles)
+			Err(NotReady(not_ready)) => Err(WorkersNotReady({ not_ready, handles: $handles }))
+		}
 	}
 
 	## Run a test with the worker's URL.
@@ -260,7 +291,7 @@ wait_for_workers! = |effects, ready!, pending, attempt, max_attempts, delay_ms| 
 	if pending.is_empty() {
 		Ok({})
 	} else if attempt >= max_attempts {
-		Err(WorkersNotReady(pending))
+		Err(NotReady(pending))
 	} else {
 		still_pending = probe_round!(ready!, pending, [])
 

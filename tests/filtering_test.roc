@@ -1,29 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
-import pf.Cmd
-import pf.OsStr
-import pf.Path
-import pf.Sleep
 import pf.Stdout
-import pf.Utc
 import spec.Spec
-
-effects = {
-	spawn_test!: |file, envs|
-		Cmd.new(OsStr.utf8("roc"))
-			.args_str(["--opt=speed", file])
-			.envs_str(envs)
-			.spawn_leashed!(),
-	poll!: Cmd.Child.poll!,
-	kill_wait!: Cmd.Child.kill_wait!,
-	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
-	print!: Stdout.line!,
-	utc_now!: Utc.now!,
-	sleep_millis!: Sleep.millis!,
-}
+import Effects
 
 no_envs = |_index| []
 
@@ -38,7 +20,7 @@ config = {
 
 main! = |_args| {
 	# Test 1: No filter -> runs all 3 tests
-	results_all = Spec.run_filtered!(effects, "tests/filter_fixtures", config, "")?
+	results_all = Spec.run_filtered!(Effects.spec, "tests/filter_fixtures", config, "")?
 	count_all = results_all.len()
 	names_all = results_all.map(|r| r.name)
 	has_alpha = names_all.any(|n| n.contains("alpha"))
@@ -47,27 +29,27 @@ main! = |_args| {
 	all_ok = count_all == 3 and has_alpha and has_beta and has_gamma
 
 	# Test 2: Filter "alpha" -> runs only alpha_test
-	results_alpha = Spec.run_filtered!(effects, "tests/filter_fixtures", config, "alpha")?
+	results_alpha = Spec.run_filtered!(Effects.spec, "tests/filter_fixtures", config, "alpha")?
 	count_alpha = results_alpha.len()
 	alpha_has_alpha = results_alpha.any(|r| r.name.contains("alpha"))
 	alpha_has_others = results_alpha.any(|r| r.name.contains("beta") or r.name.contains("gamma"))
 	alpha_ok = count_alpha == 1 and alpha_has_alpha and !alpha_has_others
 
 	# Test 3: Filter "eta" -> runs beta_test (contains "eta")
-	results_eta = Spec.run_filtered!(effects, "tests/filter_fixtures", config, "eta")?
+	results_eta = Spec.run_filtered!(Effects.spec, "tests/filter_fixtures", config, "eta")?
 	count_eta = results_eta.len()
 	eta_has_beta = results_eta.any(|r| r.name.contains("beta"))
 	eta_has_others = results_eta.any(|r| r.name.contains("alpha") or r.name.contains("gamma"))
 	eta_ok = count_eta == 1 and eta_has_beta and !eta_has_others
 
 	# Test 4: Filter "nonexistent" -> runs nothing
-	results_none = Spec.run_filtered!(effects, "tests/filter_fixtures", config, "nonexistent")?
+	results_none = Spec.run_filtered!(Effects.spec, "tests/filter_fixtures", config, "nonexistent")?
 	count_none = results_none.len()
 	none_ok = count_none == 0
 
 	# Test 5: The pattern matches the whole test name, not just the filename,
 	# so a directory prefix selects everything under that directory
-	results_dir = Spec.run_filtered!(effects, "tests/nested_fixtures", config, "level1/")?
+	results_dir = Spec.run_filtered!(Effects.spec, "tests/nested_fixtures", config, "level1/")?
 	names_dir = results_dir.map(|r| r.name)
 	dir_ok =
 		results_dir.len() == 3
@@ -76,7 +58,7 @@ main! = |_args| {
 					and names_dir.contains("level1/level2/level3/level3_test")
 
 	# Test 6: A full name pinpoints a single test in a subdirectory
-	results_exact = Spec.run_filtered!(effects, "tests/nested_fixtures", config, "level1/level1_test")?
+	results_exact = Spec.run_filtered!(Effects.spec, "tests/nested_fixtures", config, "level1/level1_test")?
 	exact_ok = results_exact.map(|r| r.name) == ["level1/level1_test"]
 
 	if all_ok and alpha_ok and eta_ok and none_ok and dir_ok and exact_ok {

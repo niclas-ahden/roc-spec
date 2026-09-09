@@ -1,5 +1,5 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
@@ -23,7 +23,7 @@ main! = |_args| {
 		},
 	)
 	match all_ready {
-		Ok({}) => Stdout.line!("PASS: all workers ready")?
+		Ok(_) => Stdout.line!("PASS: all workers ready")?
 		Err(e) => {
 			Stdout.line!("FAIL: expected Ok, got ${Str.inspect(e)}")?
 			Err(AllReadyFailed)?
@@ -42,11 +42,11 @@ main! = |_args| {
 		},
 	)
 	match never_ready {
-		Err(WorkersNotReady(indices)) =>
-			if indices == [0, 1, 2] {
-				Stdout.line!("PASS: not-ready workers are all reported")?
+		Err(WorkersNotReady({ not_ready, handles })) =>
+			if not_ready == [0, 1, 2] and handles.len() == 3 {
+				Stdout.line!("PASS: not-ready workers are all reported, with every handle")?
 			} else {
-				Stdout.line!("FAIL: wrong indices reported: ${Str.inspect(indices)}")?
+				Stdout.line!("FAIL: wrong report: ${Str.inspect(not_ready)} with ${handles.len().to_str()} handles")?
 				Err(WrongIndices)?
 			}
 		other => {
@@ -67,11 +67,11 @@ main! = |_args| {
 		},
 	)
 	match partial {
-		Err(WorkersNotReady(indices)) =>
-			if indices == [1] {
-				Stdout.line!("PASS: only the not-ready worker is reported")?
+		Err(WorkersNotReady({ not_ready, handles })) =>
+			if not_ready == [1] and handles.len() == 3 {
+				Stdout.line!("PASS: only the not-ready worker is reported, with every handle")?
 			} else {
-				Stdout.line!("FAIL: wrong indices reported: ${Str.inspect(indices)}")?
+				Stdout.line!("FAIL: wrong report: ${Str.inspect(not_ready)} with ${handles.len().to_str()} handles")?
 				Err(WrongPartialIndices)?
 			}
 		other => {
@@ -111,7 +111,7 @@ main! = |_args| {
 		},
 	)
 	match zero_workers {
-		Ok({}) => Stdout.line!("PASS: zero workers is trivially ready")
+		Ok(_) => Stdout.line!("PASS: zero workers is trivially ready")
 		Err(e) => {
 			Stdout.line!("FAIL: expected Ok for zero workers, got ${Str.inspect(e)}")?
 			Err(ZeroWorkersFailed)

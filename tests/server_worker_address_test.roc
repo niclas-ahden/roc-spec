@@ -1,5 +1,5 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
@@ -7,13 +7,13 @@ import pf.Stdout
 import spec.Server
 
 # Every effect is stubbed, so this pins the address `Server` derives without
-# spawning anything: `spawn_server!` hands back a fake child that `poll!` and
-# `kill!` accept, and `http_get!` reports ready on the first probe.
+# spawning anything: `spawn_server!` hands back a fake child that `try_wait!`
+# and `close!` accept, and `http_get!` reports ready on the first probe.
 stub_effects = |env| {
 	env_var!: env,
 	spawn_server!: |_cmd, port| Ok(FakeChild(port)),
-	kill!: |_child| Ok({}),
-	poll!: |_child| Ok(Running),
+	close!: |_child| Ok({}),
+	try_wait!: |_child| Ok([]),
 	http_get!: |_url| Ok("ready"),
 	sleep!: |_millis| {},
 }

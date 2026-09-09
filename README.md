@@ -8,13 +8,13 @@ A Roc package for writing and running parallel tests with isolated test environm
 2. Each test file is a standalone Roc app that exits 0 on success, non-zero on failure.
 3. `Spec.run!` discovers and runs them in parallel with isolated worker environments.
 
-`Spec` takes an `effects` record of platform functions as its first argument. Build it once from your platform's modules and pass it along. Typically you'd put that record in a helper module that you import in all of your tests to avoid duplication.
+`Spec` takes an `effects` record of platform functions as its first argument. Build it once from your platform's modules and pass it along. Typically you'd put that record in a helper module that you import in all of your tests to avoid duplication (`tests/Effects.roc` in this repository is one).
 
 ## Example test file
 
 ```roc
 # tests/math_test.roc
-app [main!] { pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst" }
+app [main!] { pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst" }
 
 main! = |_|
     if 1 + 1 == 2 {
@@ -29,7 +29,7 @@ main! = |_|
 ```roc
 # run_tests.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
     spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.4.0/7fpzAnSVtkGcXL3dCsoK3j6wtebcEYiSSbGEpAMMnZbE.tar.zst",
 }
 
@@ -47,9 +47,12 @@ effects = {
         Cmd.new(OsStr.utf8("roc"))
             .args_str(["--opt=speed", file])
             .envs_str(envs)
+            .stdout(Capture)
+            .stderr(Capture)
             .spawn_leashed!(),
-    poll!: Cmd.Child.poll!,
-    kill_wait!: Cmd.Child.kill_wait!,
+    try_wait!: Cmd.Child.try_wait!,
+    kill!: Cmd.Child.kill!,
+    wait!: Cmd.Child.wait!,
     # List a dir as `List(Str)`
     list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
     print!: Stdout.line!,
@@ -86,6 +89,8 @@ A test directory that cannot be listed is an error (`TestDirNotFound`) rather th
 
 The `spawn_test!` effect above runs each test file with `roc --opt=speed`, so your tests run compiled. Feel free to change the command as you please. You could for example wrap tests in e.g. `systemd-run` for even better control, or run something that is not `roc` at all. Spawn leashed, so that a test killed on timeout takes its descendants with it.
 
+Capture both streams: `Spec` reports a test's output from what `try_wait!` and `wait!` hand back, and `spawn_leashed!` inherits the streams unless told otherwise. `Pipe` needs a reader that `Spec` does not run, so don't use it. A captured stream has a budget (`Cmd.output_limit`, 16 MiB by default); a test that prints more is cancelled by the platform and reported as failed, with what it printed up to that point and a note saying how to raise the limit.
+
 ## Spawning a server in a test
 
 ```roc
@@ -99,9 +104,11 @@ server_effects = {
         cmd
             ->Cmd.env_str("PORT", port)
             ->Cmd.env_str("ROC_BASIC_WEBSERVER_PORT", port)
+            ->Cmd.stdout(Capture)
+            ->Cmd.stderr(Capture)
             ->Cmd.spawn_leashed!(),
-    kill!: Cmd.Child.kill!,
-    poll!: Cmd.Child.poll!,
+    close!: Cmd.Child.close!,
+    try_wait!: Cmd.Child.try_wait!,
     http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),
     sleep!: Sleep.millis!,
 }
@@ -113,7 +120,7 @@ main! = |_args|
     })
 ```
 
-`Server.with!` waits for the server to answer, runs your callback, and kills the server afterwards even if the callback failed.
+`Server.with!` waits for the server to answer, runs your callback, and takes the server down afterwards even if the callback failed. A server that exits before answering is reported as `ServerCrashed` with its stderr, so capture that stream at least; `stdout` can go to `Null` for a chatty server. A server that prints more than its capture budget (`Cmd.output_limit`) before answering is reported as `ServerOutputLimit`.
 
 It takes the address from the same worker environment `TestEnvironment` reads: the port is `ROC_SPEC_BASE_PORT + WORKER_INDEX` and the host is `ROC_SPEC_HOST` (default `localhost`), so set those in `worker_envs` and every worker gets its own port. A test run on its own has no runner to set that up, so there the port comes from `PORT`, default 8000.
 
@@ -150,7 +157,7 @@ Each returns `Try({}, ...)` (except `ok`, `err` and `just`, which return the val
 ```roc
 # tests/test_users.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
     spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.5.0/FcrX3NPAD9yVocXvrtfXF25GU25Aaw97UJH7nxnVvgqP.tar.zst",
 }
 
@@ -171,19 +178,29 @@ When each worker needs its own server (or reverse proxy, or both), start them wi
 ```roc
 import spec.TestEnvironment
 
-TestEnvironment.start!({ sleep!: Sleep.millis! }, {
+servers = TestEnvironment.start!({ sleep!: Sleep.millis! }, {
     count: workers,
     spawn!: |index| {
         port = (8000 + index).to_str()
-        Cmd.new("./server").env_str("PORT", port).spawn_leashed!().map_ok(|_| {})
+        Cmd.new("./server").env_str("PORT", port).spawn_leashed!() ? |e| SpawnFailed(e)
     },
     ready!: |index| check_health!(8000 + index),
     max_attempts: 150,
     delay_ms: 200,
 })?
+
+results = Spec.run!(effects, "tests", config)?
+
+# Holding the handles until here kept the servers up for the run. Close
+# them now that it is over.
+for server in servers {
+    _ = Cmd.Child.close!(server)
+}
 ```
 
-`spawn!` starts one worker's processes (use `spawn_leashed!` so they die with the runner) and `ready!` is one cheap probe, called repeatedly until every worker answers. Workers that never answer are reported in `Err(WorkersNotReady(indices))`.
+`spawn!` starts one worker's processes (use `spawn_leashed!` so they die with the runner) and `ready!` is one cheap probe, called repeatedly until every worker answers. `start!` returns what every `spawn!` handed back, in index order. A managed child is terminated when its last reference is released, and Roc releases a binding after its last use, so `servers` has to be used after the run: a `servers` that is never read again is released as soon as `start!` returns, and the workers are gone before the first test starts. Closing the handles after the run, as above, is what keeps them alive until then.
+
+Workers that never answer are reported in `Err(WorkersNotReady({ not_ready, handles }))`, together with every handle, so the runner can ask a silent worker how it ended (`Cmd.Child.try_wait!`) before the handles are released. A failing `spawn!` returns its own error unchanged, and the workers spawned before it are released on the way out.
 
 Inside a test, `TestEnvironment.worker_url!` builds the worker's URL from the env the runner sets (`ROC_SPEC_BASE_PORT`, `WORKER_INDEX`, `ROC_SPEC_HOST`). Every `TestEnvironment` function documents exactly which effect fields it needs, so a test that only wants the URL passes `{ env_var!: ... }` and nothing else.
 

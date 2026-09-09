@@ -1,29 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
-import pf.Cmd
-import pf.OsStr
-import pf.Path
-import pf.Sleep
 import pf.Stdout
-import pf.Utc
 import spec.Spec
-
-effects = {
-	spawn_test!: |file, envs|
-		Cmd.new(OsStr.utf8("roc"))
-			.args_str(["--opt=speed", file])
-			.envs_str(envs)
-			.spawn_leashed!(),
-	poll!: Cmd.Child.poll!,
-	kill_wait!: Cmd.Child.kill_wait!,
-	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
-	print!: Stdout.line!,
-	utc_now!: Utc.now!,
-	sleep_millis!: Sleep.millis!,
-}
+import Effects
 
 no_envs = |_index| []
 
@@ -38,7 +20,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results = Spec.run!(effects, "tests/timeout_output_fixtures", config)?
+	results = Spec.run!(Effects.spec, "tests/timeout_output_fixtures", config)?
 
 	match results.first() {
 		Err(_) => {
