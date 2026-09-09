@@ -22,6 +22,14 @@
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ] (system:
       let
         pkgs = import nixpkgs { inherit system; };
+
+        # Builds Roc using `ReleaseFast`. To chase a suspected compiler fault,
+        # build a `ReleaseSafe` variant of the same revision:
+        #
+        #   roc-nix.lib.${system}.mkRoc { optimize = "ReleaseSafe"; }
+        #
+        # roc-nix's README lists the rest of the build options, patches
+        # included.
         roc = roc-nix.packages.${system}.roc;
       in
       {
