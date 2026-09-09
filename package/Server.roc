@@ -58,9 +58,12 @@ Server :: [].{
 	## How long to wait for a server to answer: `max_attempts` probes,
 	## `delay_ms` apart, so the ceiling is `max_attempts * delay_ms`.
 	##
-	## One further `delay_ms` passes after the first answer, before the server
-	## is declared ready: a process that answers once and then dies is caught
-	## as `ServerCrashed` rather than reported as a success.
+	## The first answer does not end the wait. The server has to still be
+	## alive a second later before it is declared ready, so a process that
+	## answers once and then dies is caught as `ServerCrashed` rather than
+	## reported as a success. Probing already done counts towards that
+	## second, so a server that took a while to answer is ready as soon as it
+	## answers.
 	Timeout : {
 		max_attempts : U64,
 		delay_ms : U64,
@@ -239,18 +242,13 @@ wait_for_server_helper! = |effects, url, max_attempts, delay_ms, attempt, child|
 			Ok(Running) =>
 			# Server is still running, check if it's ready via HTTP
 				match http_get!(url) {
-					Ok(_body) => {
+					Ok(_body) =>
 						# Something answered, but that is not proof it was ours:
 						# a leftover process on the same port answers just as
 						# well, and a server can answer once and then die on
-						# its first real request. Give it one more `delay_ms`
-						# to fall over, then check again before declaring it up.
-						sleep!(delay_ms)
-						match check_server!(effects, child, url) {
-							Ok(_) => Ok({})
-							Err(e) => Err(e)
-						}
-					}
+						# its first real request. Watch the child for a while
+						# before declaring it up.
+						settle!(effects, child, url, settle_ms(attempt, delay_ms))
 
 					Err(_) => {
 						sleep!(delay_ms)
@@ -268,6 +266,68 @@ wait_for_server_helper! = |effects, url, max_attempts, delay_ms, attempt, child|
 						wait_for_server_helper!(effects, url, max_attempts, delay_ms, attempt + 1, child)
 					}
 				}
+		}
+	}
+}
+
+## How long a server has to stay up before an answer on its URL is taken as
+## its own. A leftover process on the same port answers immediately, so an
+## answer that arrives before ours has had time to bind and fall over proves
+## nothing.
+##
+## Deliberately not `delay_ms`: that is a polling interval, and a caller who
+## polls every 50ms wants a quick first answer, not a 50ms guard. A cold
+## process on a loaded machine takes longer than that just to reach its
+## `listen` call, which is where a port conflict surfaces.
+min_alive_ms : U64
+min_alive_ms = 1000
+
+## How often `settle!` looks at the child, so a server that dies during the
+## window is reported without waiting the window out.
+settle_slice_ms : U64
+settle_slice_ms = 50
+
+## What is left of `min_alive_ms` once the probing already done is counted.
+##
+## Every failed probe is a second the child was alive without anything
+## answering, which is the evidence the window is there to gather. A server
+## that answered only on the tenth probe has already earned its keep; one
+## that answered on the first has not.
+settle_ms = |attempt, delay_ms| {
+	polled_ms = attempt * delay_ms
+
+	if polled_ms >= min_alive_ms {
+		0
+	} else {
+		min_alive_ms - polled_ms
+	}
+}
+
+## Watch a child that has answered for `remaining_ms`, then declare it ready.
+##
+## Returns as soon as the child is seen to have died, so the window costs
+## nothing in the case it exists to catch.
+settle! = |effects, child, url, remaining_ms| {
+	sleep! = effects.sleep!
+
+	if remaining_ms == 0 {
+		match check_server!(effects, child, url) {
+			Ok(_) => Ok({})
+			Err(e) => Err(e)
+		}
+	} else {
+		slice =
+			if remaining_ms < settle_slice_ms {
+				remaining_ms
+			} else {
+				settle_slice_ms
+			}
+
+		sleep!(slice)
+
+		match check_server!(effects, child, url) {
+			Ok(_) => settle!(effects, child, url, remaining_ms - slice)
+			Err(e) => Err(e)
 		}
 	}
 }
