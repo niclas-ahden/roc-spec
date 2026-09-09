@@ -16,9 +16,12 @@
 ##         Cmd.new(OsStr.utf8("roc"))
 ##             .args_str(["--opt=speed", file])
 ##             .envs_str(envs)
+##             .stdout(Capture)
+##             .stderr(Capture)
 ##             .spawn_leashed!(),
-##     poll!: Cmd.Child.poll!,
-##     kill_wait!: Cmd.Child.kill_wait!,
+##     try_wait!: Cmd.Child.try_wait!,
+##     kill!: Cmd.Child.kill!,
+##     wait!: Cmd.Child.wait!,
 ##     # List a directory's entries as path strings, e.g. "tests/foo_test.roc".
 ##     list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
 ##     print!: Stdout.line!,
@@ -35,6 +38,13 @@
 ##     fail_fast: Bool.False,
 ## })
 ## ```
+##
+## `spawn_test!` has to capture both streams: a test's output is reported from
+## what `try_wait!` and `wait!` hand back, and `spawn_leashed!` inherits the
+## streams unless told otherwise. Do not use `Pipe`, which needs a reader that
+## `Spec` does not run. A test that prints more than the capture budget
+## (`Cmd.output_limit`, 16 MiB by default) is cancelled by the platform and
+## reported as failed, with what it printed up to that point.
 import Format
 
 Spec :: [].{
@@ -423,7 +433,7 @@ find_completed! = |effects, running, config|
 	find_completed_helper!(effects, running, [], config.per_test_timeout_ms)
 
 find_completed_helper! = |effects, remaining, checked, timeout_ms| {
-	poll! = effects.poll!
+	try_wait! = effects.try_wait!
 	utc_now! : () => U128
 	utc_now! = effects.utc_now!
 
@@ -433,18 +443,44 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 
 		[spawned, .. as rest] => {
 			{ name, worker_index, child, start_time } = spawned
-			poll_result = poll!(child)
 
-			match poll_result {
-				Ok(Exited({ exit_code, stdout, stderr })) =>
+			# Only a child still running is subject to the timeout below;
+			# everything else is a result, however the test ended.
+			outcome =
+				match try_wait!(child) {
+					Ok([output, ..]) =>
+						Done(Finished(output))
+
+					Ok([]) =>
+						StillRunning
+
+					# The platform's own deadline (`Cmd.timeout_ms`) ran out
+					# before this loop's did. What it retained is what the
+					# test managed to print.
+					Err(Timeout(partial)) =>
+						Done(TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" }))
+
+					Err(OutputLimit(partial)) =>
+						Done(OutputLimitExceeded({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes }))
+
+					# A poll error is usually transient, so keep the test in the
+					# running list. The timeout still applies there: a child
+					# whose poll never recovers would otherwise stay in that
+					# list forever and hang the entire run.
+					Err(IO(_)) =>
+						StillRunning
+				}
+
+			match outcome {
+				Done(poll_result) =>
 					Found({
 						completed: { name, start_time },
 						worker_index,
-						poll_result: Exited({ stdout, stderr, exit_code }),
+						poll_result,
 						remaining: checked.concat(rest),
 					})
 
-				Ok(Running) => {
+				StillRunning => {
 					elapsed_ms = (utc_now!().minus_saturated(start_time) // 1_000_000).to_u64_wrap()
 
 					if elapsed_ms > timeout_ms {
@@ -459,25 +495,6 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 						find_completed_helper!(effects, rest, checked.append(spawned), timeout_ms)
 					}
 				}
-
-				Err(_) => {
-					# A poll error is usually transient, so keep the test in the
-					# running list. The timeout still applies here: a child
-					# whose poll never recovers would otherwise stay in that
-					# list forever and hang the entire run.
-					elapsed_ms = (utc_now!().minus_saturated(start_time) // 1_000_000).to_u64_wrap()
-
-					if elapsed_ms > timeout_ms {
-						Found({
-							completed: { name, start_time },
-							worker_index,
-							poll_result: kill_timed_out!(effects, child),
-							remaining: checked.concat(rest),
-						})
-					} else {
-						find_completed_helper!(effects, rest, checked.append(spawned), timeout_ms)
-					}
-				}
 			}
 		}
 	}
@@ -485,25 +502,44 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 
 ## Kill a test that ran out of time and shape what it left behind into a poll
 ## result. Killing a leashed child takes down the test and anything it spawned,
-## and hands back whatever it printed before it hung, which is the most useful
-## part of a timeout report.
+## and reaping it hands back whatever it printed before it hung, which is the
+## most useful part of a timeout report.
 kill_timed_out! = |effects, child| {
-	kill_wait! = effects.kill_wait!
+	kill! = effects.kill!
+	wait! = effects.wait!
 
-	match kill_wait!(child) {
-		Ok({ stdout, stderr, exit_code }) =>
-		# A test that finished in the sliver between the poll and the kill
-		# has a real exit code; the signal path reports -1. Report what it
-		# did rather than a timeout it beat by a hair.
-			if exit_code >= 0 {
-				Exited({ stdout, stderr, exit_code })
-			} else {
-				TimedOut({ stdout, stderr, kill_error: "" })
-			}
-
+	match kill!(child) {
 		Err(e) =>
 			TimedOut({ stdout: [], stderr: [], kill_error: describe("could not kill it: ", e) })
-		}
+
+		Ok({}) =>
+			match wait!(child) {
+				Ok(output) =>
+					match output.status {
+						# A test that exited 0 in the sliver between the poll
+						# and the kill beat the deadline by a hair, so report
+						# what it did rather than a timeout. A zero exit is the
+						# only status trusted for that: on Unix a killed child
+						# comes back `Signaled`, but on Windows the host cannot
+						# tell a TerminateProcess from a genuine exit and
+						# reports `Exited(1)`, so any other status after a
+						# successful kill is the timeout it was killed for.
+						Exited(0) => Finished(output)
+						_ => TimedOut({ stdout: output.stdout_bytes, stderr: output.stderr_bytes, kill_error: "" })
+					}
+
+				Err(Timeout(partial)) =>
+					TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" })
+
+				# Both budgets ran out. The deadline is why it was killed, so
+				# that is what gets reported, along with what it printed.
+				Err(OutputLimit(partial)) =>
+					TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" })
+
+				Err(IO(e)) =>
+					TimedOut({ stdout: [], stderr: [], kill_error: describe("could not reap it: ", e) })
+			}
+	}
 }
 
 ## Process a poll result into a TestResult.
@@ -514,36 +550,53 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 
 	end_time = utc_now!()
 	duration_ms = (end_time.minus_saturated(start_time) // 1_000_000).to_u64_wrap()
+	duration = Format.format_duration(duration_ms)
 
 	match poll_result {
-		Exited({ stdout, stderr, exit_code }) => {
-			stdout_str = Str.from_utf8_lossy(stdout)
-			stderr_str = Str.from_utf8_lossy(stderr)
+		Finished({ status, stdout_bytes, stderr_bytes }) => {
+			stdout_str = Str.from_utf8_lossy(stdout_bytes)
+			stderr_str = Str.from_utf8_lossy(stderr_bytes)
 
-			if exit_code == 0 {
-				_ = print!("${Format.green_check} ${name} (${Format.format_duration(duration_ms)})")
-				_ =
-					if !quiet {
-						print_output!(effects, stdout_str, stderr_str)
-					} else {
-						Ok({})
+			match status {
+				Exited(0) => {
+					_ = print!("${Format.green_check} ${name} (${duration})")
+					_ =
+						if !quiet {
+							print_output!(effects, stdout_str, stderr_str)
+						} else {
+							Ok({})
+						}
+					{
+						name,
+						passed: Bool.True,
+						duration_ms,
+						output: stdout_str,
+						error: stderr_str,
 					}
-				{
-					name,
-					passed: Bool.True,
-					duration_ms,
-					output: stdout_str,
-					error: stderr_str,
 				}
-			} else {
-				_ = print!("${Format.red_x} ${name} (${Format.format_duration(duration_ms)})")
-				_ = print_output!(effects, stdout_str, stderr_str)
-				{
-					name,
-					passed: Bool.False,
-					duration_ms,
-					output: stdout_str,
-					error: stderr_str,
+
+				Exited(_) => {
+					_ = print!("${Format.red_x} ${name} (${duration})")
+					_ = print_output!(effects, stdout_str, stderr_str)
+					{
+						name,
+						passed: Bool.False,
+						duration_ms,
+						output: stdout_str,
+						error: stderr_str,
+					}
+				}
+
+				Signaled(signal) => {
+					_ = print!("${Format.red_x} ${name} (killed by signal ${signal.to_str()} after ${duration})")
+					_ = print_output!(effects, stdout_str, stderr_str)
+					{
+						name,
+						passed: Bool.False,
+						duration_ms,
+						output: stdout_str,
+						error: with_note(stderr_str, "Killed by signal ${signal.to_str()}"),
+					}
 				}
 			}
 		}
@@ -552,7 +605,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 			stdout_str = Str.from_utf8_lossy(stdout)
 			stderr_str = Str.from_utf8_lossy(stderr)
 
-			_ = print!("${Format.red_x} ${name} (TIMEOUT after ${Format.format_duration(duration_ms)})")
+			_ = print!("${Format.red_x} ${name} (TIMEOUT after ${duration})")
 			_ = print_output!(effects, stdout_str, stderr_str)
 			{
 				name,
@@ -562,8 +615,32 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 				error: if kill_error.is_empty() "Test timed out" else "Test timed out, ${kill_error}",
 			}
 		}
+
+		OutputLimitExceeded({ stdout, stderr }) => {
+			stdout_str = Str.from_utf8_lossy(stdout)
+			stderr_str = Str.from_utf8_lossy(stderr)
+
+			_ = print!("${Format.red_x} ${name} (OUTPUT LIMIT exceeded after ${duration})")
+			_ = print_output!(effects, stdout_str, stderr_str)
+			{
+				name,
+				passed: Bool.False,
+				duration_ms,
+				output: stdout_str,
+				error: with_note(stderr_str, output_limit_note),
+			}
+		}
 	}
 }
+
+## What a test is told when the platform cancelled it for printing too much.
+output_limit_note : Str
+output_limit_note = "Test exceeded its output limit and was cancelled. Raise it with Cmd.output_limit in spawn_test!, or print less."
+
+## Add a note on how a test ended to what it wrote on stderr.
+with_note : Str, Str -> Str
+with_note = |stderr_str, note|
+	if stderr_str.is_empty() note else "${stderr_str}\n${note}"
 
 ## Print captured stdout/stderr with indentation
 print_output! = |effects, stdout_str, stderr_str| {

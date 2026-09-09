@@ -5,7 +5,7 @@
 ## roc examples/minimal_test.roc
 ## ```
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
@@ -23,9 +23,12 @@ effects = {
 		Cmd.new(OsStr.utf8("roc"))
 			.args_str(["--opt=speed", file])
 			.envs_str(envs)
+			.stdout(Capture)
+			.stderr(Capture)
 			.spawn_leashed!(),
-	poll!: Cmd.Child.poll!,
-	kill_wait!: Cmd.Child.kill_wait!,
+	try_wait!: Cmd.Child.try_wait!,
+	kill!: Cmd.Child.kill!,
+	wait!: Cmd.Child.wait!,
 	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
 	print!: Stdout.line!,
 	utc_now!: Utc.now!,

@@ -29,9 +29,11 @@
 ##         cmd
 ##             .env_str("PORT", port)
 ##             .env_str("ROC_BASIC_WEBSERVER_PORT", port)
+##             .stdout(Capture)
+##             .stderr(Capture)
 ##             .spawn_leashed!(),
-##     kill!: Cmd.Child.kill!,
-##     poll!: Cmd.Child.poll!,
+##     close!: Cmd.Child.close!,
+##     try_wait!: Cmd.Child.try_wait!,
 ##     http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),
 ##     sleep!: Sleep.millis!,
 ## }
@@ -43,6 +45,12 @@
 ##         Assert.eq(body, "ok")
 ##     })
 ## ```
+##
+## `spawn_server!` decides what happens to the server's output. Capture
+## `stderr` at least, since `ServerCrashed` reports it; `stdout` can be
+## captured too, or sent to `Null` for a chatty server. A captured stream has
+## a budget (`Cmd.output_limit`, 16 MiB by default): a server that exceeds it
+## is cancelled by the platform and reported as `ServerOutputLimit`.
 import TestEnvironment
 
 Server :: [].{
@@ -75,13 +83,16 @@ Server :: [].{
 	## - `ServerSpawnFailed`: the process would not start, carrying your
 	##   platform's own spawn error
 	## - `ServerCrashed`: it started and then exited before answering
+	## - `ServerOutputLimit`: it printed more than its capture budget allows
+	##   before answering, so the platform cancelled it
 	## - `ServerNotReady`: it never answered within the timeout
 	## - `EnvVarNotSet`/`InvalidEnvVar`: the worker environment could not be
 	##   read (`with!` and `with_timeout!` only, since `with_address!` is told
 	##   the address instead of deriving it)
 	Error(spawn_err, err) : [
 		ServerSpawnFailed(spawn_err),
-		ServerCrashed({ exit_code : I32, stderr : Str }),
+		ServerCrashed({ status : [Exited(I32), Signaled(I32)], stderr : Str }),
+		ServerOutputLimit({ stdout : Str, stderr : Str }),
 		ServerNotReady(Str),
 		EnvVarNotSet(Str),
 		InvalidEnvVar(Str),
@@ -154,7 +165,7 @@ Server :: [].{
 	with_address! : _, cmd, Address, (Str => Try(ok, Error(spawn_err, err))) => Try(ok, Error(spawn_err, err))
 	with_address! = |effects, cmd, { base_url, port, max_attempts, delay_ms }, callback!| {
 		spawn_server! = effects.spawn_server!
-		kill! = effects.kill!
+		close! = effects.close!
 
 		spawn_result = spawn_server!(cmd, port)
 
@@ -170,8 +181,8 @@ Server :: [].{
 						Err(e) => Err(e)
 					}
 
-				# Always kill the server, even if wait or callback failed
-				_ = kill!(child)
+				# Always take the server down, even if wait or callback failed
+				_ = close!(child)
 
 				result
 			}
@@ -216,18 +227,14 @@ wait_for_server! = |effects, url, max_attempts, delay_ms, child|
 	wait_for_server_helper!(effects, url, max_attempts, delay_ms, 0, child)
 
 wait_for_server_helper! = |effects, url, max_attempts, delay_ms, attempt, child| {
-	poll! = effects.poll!
 	http_get! = effects.http_get!
 	sleep! = effects.sleep!
 
 	if attempt >= max_attempts {
 		Err(ServerNotReady(url))
 	} else {
-		# Check if the server process crashed
-		poll_result = poll!(child)
-		match poll_result {
-			Ok(Exited({ exit_code, stderr, stdout: _ })) =>
-				Err(ServerCrashed({ exit_code, stderr: Str.from_utf8_lossy(stderr) }))
+		match check_server!(effects, child, url) {
+			Err(e) => Err(e)
 
 			Ok(Running) =>
 			# Server is still running, check if it's ready via HTTP
@@ -237,15 +244,11 @@ wait_for_server_helper! = |effects, url, max_attempts, delay_ms, attempt, child|
 						# a leftover process on the same port answers just as
 						# well, and a server can answer once and then die on
 						# its first real request. Give it one more `delay_ms`
-						# to fall over, then poll again before declaring it up.
+						# to fall over, then check again before declaring it up.
 						sleep!(delay_ms)
-						match poll!(child) {
-							Ok(Running) => Ok({})
-							Ok(Exited({ exit_code, stderr: err_bytes, stdout: _ })) =>
-								Err(ServerCrashed({ exit_code, stderr: Str.from_utf8_lossy(err_bytes) }))
-							# Poll failed but HTTP worked and first poll showed Running.
-							# This is likely a platform edge case, not a real problem.
-							Err(_) => Ok({})
+						match check_server!(effects, child, url) {
+							Ok(_) => Ok({})
+							Err(e) => Err(e)
 						}
 					}
 
@@ -255,7 +258,7 @@ wait_for_server_helper! = |effects, url, max_attempts, delay_ms, attempt, child|
 					}
 				}
 
-			Err(_poll_err) =>
+			Ok(Unknown) =>
 			# Couldn't poll, fall back to http-only check
 				match http_get!(url) {
 					Ok(_body) => Ok({})
@@ -265,6 +268,34 @@ wait_for_server_helper! = |effects, url, max_attempts, delay_ms, attempt, child|
 						wait_for_server_helper!(effects, url, max_attempts, delay_ms, attempt + 1, child)
 					}
 				}
-			}
+		}
+	}
+}
+
+## Whether the server is still running, or how it ended if it is not.
+check_server! = |effects, child, url| {
+	try_wait! = effects.try_wait!
+
+	match try_wait!(child) {
+		Ok([]) =>
+			Ok(Running)
+
+		Ok([output, ..]) =>
+			Err(ServerCrashed({ status: output.status, stderr: Str.from_utf8_lossy(output.stderr_bytes) }))
+
+		Err(OutputLimit(partial)) =>
+			Err(ServerOutputLimit({
+				stdout: Str.from_utf8_lossy(partial.stdout_bytes),
+				stderr: Str.from_utf8_lossy(partial.stderr_bytes),
+			}))
+
+		# The platform's own deadline (`Cmd.timeout_ms`) ran out first.
+		Err(Timeout(_)) =>
+			Err(ServerNotReady(url))
+
+		# A poll error is treated as no news, so readiness falls back to the
+		# HTTP probe alone.
+		Err(IO(_)) =>
+			Ok(Unknown)
 	}
 }

@@ -1,29 +1,15 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.24.0/2mx1EsQx1HEG7HdbW2CwUpexvmJZW4nSCpjbur5GXyRe.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Cmd
-import pf.Env
-import pf.OsStr
 import pf.Http
 import pf.Url
 import pf.Sleep
 import pf.Stdout
 import spec.Server
-
-server_effects = {
-	env_var!: Env.var_str!,
-	spawn_server!: |cmd, port|
-		cmd
-			->Cmd.env_str("PORT", port)
-			->Cmd.env_str("ROC_BASIC_WEBSERVER_PORT", port)
-			->Cmd.spawn_leashed!(),
-	kill!: Cmd.Child.kill!,
-	poll!: Cmd.Child.poll!,
-	http_get!: |url| Http.get_utf8!(Url.parse(url) ? InvalidUrl),
-	sleep!: Sleep.millis!,
-}
+import Effects
 
 # The working server fixture is a node script (there is no basic-webserver
 # platform for the new compiler yet).
@@ -39,7 +25,7 @@ working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working
 main! = |_args| {
 	# First call - times out waiting for HTTP ready
 	result1 = Server.with_timeout!(
-		server_effects,
+		Effects.server,
 		Cmd.new("tests/server_fixtures/slow_start_server"),
 		{ max_attempts: 3, delay_ms: 100 }, # Quick timeout
 		|_base_url| {
@@ -56,7 +42,7 @@ main! = |_args| {
 			Sleep.millis!(100)
 
 			result2 = Server.with_timeout!(
-				server_effects,
+				Effects.server,
 				working_server_cmd(),
 				{ max_attempts: 50, delay_ms: 200 },
 				|base_url|
@@ -78,7 +64,7 @@ main! = |_args| {
 				Ok(SecondServerWorked) =>
 					Stdout.line!("PASS: Cleanup on timeout verified - slow_start_server was killed")
 
-				Err(ServerCrashed({ stderr, exit_code: _ })) => {
+				Err(ServerCrashed({ stderr, status: _ })) => {
 					# If port still in use, slow_start_server wasn't killed
 					Stdout.line!("FAIL: Second server crashed - slow_start_server still running (cleanup failed)")?
 					Stdout.line!("stderr: ${stderr}")?
