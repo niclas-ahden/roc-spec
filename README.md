@@ -14,14 +14,15 @@ A Roc package for writing and running parallel tests with isolated test environm
 
 ```roc
 # tests/math_test.roc
-app [main!] { pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst" }
+app [main!] {
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.6.0/2FTxk7WLfJLBJmHi3eG5c1w5ftqKH6wC3HEWsDWZ6K9t.tar.zst",
+}
+
+import spec.Assert
 
 main! = |_|
-    if 1 + 1 == 2 {
-        Ok({})
-    } else {
-        Err(AdditionBroken)
-    }
+    Assert.eq(1 + 1, 2)
 ```
 
 ## Example test runner
@@ -29,8 +30,8 @@ main! = |_|
 ```roc
 # run_tests.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
-    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.4.0/7fpzAnSVtkGcXL3dCsoK3j6wtebcEYiSSbGEpAMMnZbE.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.6.0/2FTxk7WLfJLBJmHi3eG5c1w5ftqKH6wC3HEWsDWZ6K9t.tar.zst",
 }
 
 import pf.Cmd
@@ -157,8 +158,8 @@ Each returns `Try({}, ...)` (except `ok`, `err` and `just`, which return the val
 ```roc
 # tests/test_users.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
-    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.5.0/FcrX3NPAD9yVocXvrtfXF25GU25Aaw97UJH7nxnVvgqP.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+    spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.6.0/2FTxk7WLfJLBJmHi3eG5c1w5ftqKH6wC3HEWsDWZ6K9t.tar.zst",
 }
 
 import spec.Assert
@@ -279,10 +280,12 @@ A thunk `Err` counts as "not yet" rather than failure (except in `ok!` and `err!
 
 ## PostgreSQL integration tests
 
-For database tests, use `Pg.with_rollback!` or `Pg.with_truncate!`. They are client-agnostic: you pass a `query! : db, Str => Try({}, err)` function and whatever `db` value it needs. With [roc-pg](https://github.com/niclas-ahden/roc-pg) the query function is a one-liner, see `tests/rollback_test.roc` in this repository for a complete example, including parsing `DATABASE_URL` with `roc-database-url` and connecting.
+For database tests, use `Pg.with_rollback!` or `Pg.with_truncate!`. They are client-agnostic: you pass a `query! : db, Str => Try({}, err)` function and whatever `db` value it needs. With [roc-pg](https://github.com/niclas-ahden/roc-pg) the query function is a one-liner, see `tests/rollback_test.roc` in this repository for a complete example, including parsing `DATABASE_URL` with [roc-database-url](https://github.com/niclas-ahden/roc-database-url) and connecting.
 
 ```roc
 import spec.Pg
+
+query! = |client, sql| client.execute!(sql, []).map_ok(|_| {})
 
 # Transaction-based isolation (rolls back after the test)
 Pg.with_rollback!(query!, db, |db2| {
@@ -290,17 +293,21 @@ Pg.with_rollback!(query!, db, |db2| {
     Ok({})
 })?
 
-# Truncate-based isolation (for multi-connection tests); listed tables survive
+# Truncate-based isolation (for multi-connection tests), listed tables survive
 Pg.with_truncate!(query!, db, ["schema_migrations"], |db2| Ok({}))?
 ```
 
-`Pg.worker_db!` connects to the current worker's isolated database, named `$ROC_SPEC_BASE_DATABASE_NAME_$WORKER_INDEX`. It reads `PG_HOST`, `PG_PORT` and `PG_USER`, plus an optional `PG_PASSWORD` (unset means no password, for the trust or peer auth a local test database usually runs with). Your `pg_connect!` adapts those settings to your client's own connect function, which is where client-specific settings like roc-pg's `timeout_ms` go:
+Code under test that opens its own transaction with [roc-pg](https://github.com/niclas-ahden/roc-pg)'s `transaction!` still rolls back with `Pg.with_rollback!`. roc-pg sees that the connection is already inside a transaction and uses a savepoint instead of committing.
+
+`Pg.worker_db!` connects to the current worker's isolated database, named `$ROC_SPEC_BASE_DATABASE_NAME_$WORKER_INDEX`. It reads `PG_HOST`, `PG_PORT` and `PG_USER`, plus an optional `PG_PASSWORD` (unset means no password, for the trust or peer auth a local test database usually runs with). Your `pg_connect!` adapts those settings to your client's own connect function, which is where client-specific settings like [roc-pg](https://github.com/niclas-ahden/roc-pg)'s `timeout_ms` go:
 
 ```roc
 db = Pg.worker_db!({
     env_var!: Env.var_str!,
     pg_connect!: |{ host, port, user, database, auth }|
-        Client.connect!(tcp_effects, {
+        Client.connect!({
+            connect!: Tcp.connect!,
+            random_u64!: Random.seed_u64!,
             host,
             port,
             user,

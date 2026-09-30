@@ -4,7 +4,7 @@
 ## Roc has no parameterized modules, so these functions take an
 ## `effects` record of platform functions as their first argument. Each effect is
 ## shaped by what `Spec` needs rather than mirroring the platform's API, which
-## keeps the record small. Build it once from basic-cli's modules:
+## keeps the record small. Build it once from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s modules:
 ##
 ## ```roc
 ## effects = {
@@ -122,7 +122,7 @@ Spec :: [].{
 	## shaped by your platform's own types, like the process handle
 	## `spawn_test!` returns. The exception is `utc_now!`, which is pinned to
 	## `() => U128`, an instant in nanoseconds. See the module docs above for one
-	## built from basic-cli.
+	## built from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli).
 	run! : _, Str, Config(cfg_err) => Try(List(TestResult), Error(err))
 	run! = |effects, test_dir, config|
 		Spec.run_filtered!(effects, test_dir, config, "")

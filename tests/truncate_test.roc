@@ -1,30 +1,20 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.25.0/EsdzLgcAyudLYkMqiHXGuq2xMhPhoP1GRQWb14jZxZbY.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
 	spec: "../package/main.roc",
-	pg: "https://github.com/niclas-ahden/roc-pg/releases/download/0.1.0/6AJ537Fhm4hhsgAERCmtJxWZ9mRfT6sa8ysZWNM1U4a4.tar.zst",
-	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.3.0/HTtdy7BMLHRmLiMfdTQbf4YYzDGi6ihuUibMVUx67n8d.tar.zst",
+	pg: "https://github.com/niclas-ahden/roc-pg/releases/download/0.2.0/EGCCBmR793d6wQJzX8aS9994n9nzz6dgMvhKuU6PqQ12.tar.zst",
+	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.4.0/6sKP47ivkLchhdvDMDe9ajVoiFPEP57ZgQoEy2WTDczX.tar.zst",
 }
 
 import pf.Env
+import pf.Random
 import pf.Stdout
 import pf.Tcp
 import spec.Pg
 import pg.Client
-import pg.Cmd
 import db.DatabaseUrl
 
-tcp_effects = {
-	connect!: Tcp.connect!,
-	write!: Tcp.Stream.write!,
-	read_exactly!: Tcp.Stream.read_exactly!,
-	close!: Tcp.close!,
-	pool!: Tcp.pool!,
-	pool_acquire!: Tcp.pool_acquire!,
-	pool_release!: Tcp.pool_release!,
-}
-
 query! = |client, sql|
-	Client.command!(Cmd.new(sql), client).map_ok(|_| {})
+	client.execute!(sql, []).map_ok(|_| {})
 
 connect! = |{}| {
 	url = Env.var_str!("DATABASE_URL") ? |_| MissingEnvVar("DATABASE_URL must be set (e.g. postgresql://user:pass@localhost:5432/dbname)")
@@ -36,8 +26,9 @@ connect! = |{}| {
 				NoPassword => NoAuth
 			}
 			Client.connect!(
-				tcp_effects,
 				{
+					connect!: Tcp.connect!,
+					random_u64!: Random.seed_u64!,
 					host: config.host,
 					port: config.port,
 					user: config.user,
@@ -74,7 +65,7 @@ main! = |_args| {
 	# Verify truncate_excluded was NOT cleared (inserting same key should fail)
 	excluded_result = query!(client, "INSERT INTO truncate_excluded (key) VALUES ('excluded_key')")
 
-	Client.close!(client)
+	client.close!()
 
 	match (truncate_result, excluded_result) {
 		(Ok({}), Err(_)) =>

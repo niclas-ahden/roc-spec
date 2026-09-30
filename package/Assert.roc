@@ -17,7 +17,7 @@ Assert :: [].{
 	## Assert.eq(actual, expected)?
 	## Assert.eq(actual, expected) ? MyTag
 	## ```
-	eq : val, val -> Try({}, [NotEq(Str), ..]) where [val.is_eq : val, val -> Bool]
+	eq : val, val -> Try({}, [NotEq(Str)]) where [val.is_eq : val, val -> Bool]
 	eq = |actual, expected|
 		if actual == expected {
 			Ok({})
@@ -31,7 +31,7 @@ Assert :: [].{
 	## Assert.not_eq(actual, unexpected)?
 	## Assert.not_eq(actual, unexpected) ? MyTag
 	## ```
-	not_eq : val, val -> Try({}, [IsEq(Str), ..]) where [val.is_eq : val, val -> Bool]
+	not_eq : val, val -> Try({}, [IsEq(Str)]) where [val.is_eq : val, val -> Bool]
 	not_eq = |actual, unexpected|
 		if actual != unexpected {
 			Ok({})
@@ -45,7 +45,7 @@ Assert :: [].{
 	## value = Assert.ok(try)?
 	## value = Assert.ok(try) ? MyTag
 	## ```
-	ok : Try(a, err) -> Try(a, [NotOk(Str), ..])
+	ok : Try(a, err) -> Try(a, [NotOk(Str)])
 	ok = |try|
 		match try {
 			Ok(value) => Ok(value)
@@ -58,7 +58,7 @@ Assert :: [].{
 	## error = Assert.err(try)?
 	## error = Assert.err(try) ? MyTag
 	## ```
-	err : Try(a, e) -> Try(e, [NotErr(Str), ..])
+	err : Try(a, e) -> Try(e, [NotErr(Str)])
 	err = |try|
 		match try {
 			Err(e) => Ok(e)
@@ -71,7 +71,7 @@ Assert :: [].{
 	## value = Assert.just(maybe)?
 	## value = Assert.just(maybe) ? MyTag
 	## ```
-	just : [Just(val), Nothing] -> Try(val, [NotJust(Str), ..])
+	just : [Just(val), Nothing] -> Try(val, [NotJust(Str)])
 	just = |maybe|
 		match maybe {
 			Just(value) => Ok(value)
@@ -84,7 +84,7 @@ Assert :: [].{
 	## Assert.nothing(maybe)?
 	## Assert.nothing(maybe) ? MyTag
 	## ```
-	nothing : [Just(val), Nothing] -> Try({}, [NotNothing(Str), ..])
+	nothing : [Just(val), Nothing] -> Try({}, [NotNothing(Str)])
 	nothing = |maybe|
 		match maybe {
 			Nothing => Ok({})
@@ -97,7 +97,7 @@ Assert :: [].{
 	## Assert.true(condition)?
 	## Assert.true(condition) ? MyTag
 	## ```
-	true : Bool -> Try({}, [NotTrue(Str), ..])
+	true : Bool -> Try({}, [NotTrue(Str)])
 	true = |value|
 		if value {
 			Ok({})
@@ -111,7 +111,7 @@ Assert :: [].{
 	## Assert.false(condition)?
 	## Assert.false(condition) ? MyTag
 	## ```
-	false : Bool -> Try({}, [NotFalse(Str), ..])
+	false : Bool -> Try({}, [NotFalse(Str)])
 	false = |value|
 		if !value {
 			Ok({})
@@ -128,7 +128,7 @@ Assert :: [].{
 	## Assert.contains([1, 2, 3], 2)?
 	## Assert.contains(body, "alice") ? MyTag
 	## ```
-	contains : coll, elem -> Try({}, [DoesNotContain(Str), ..]) where [coll.contains : coll, elem -> Bool]
+	contains : coll, elem -> Try({}, [DoesNotContain(Str)]) where [coll.contains : coll, elem -> Bool]
 	contains = |collection, element|
 		if collection.contains(element) {
 			Ok({})
@@ -145,7 +145,7 @@ Assert :: [].{
 	## Assert.not_contains([1, 2, 3], 4)?
 	## Assert.not_contains(body, "password") ? MyTag
 	## ```
-	not_contains : coll, elem -> Try({}, [DoesContain(Str), ..]) where [coll.contains : coll, elem -> Bool]
+	not_contains : coll, elem -> Try({}, [DoesContain(Str)]) where [coll.contains : coll, elem -> Bool]
 	not_contains = |collection, element|
 		if collection.contains(element) {
 			Err(DoesContain("${Str.inspect(collection)} should not contain ${Str.inspect(element)}, but it does."))
@@ -159,7 +159,7 @@ Assert :: [].{
 	## Assert.gt(count, 0)?
 	## Assert.gt(count, 0) ? MyTag
 	## ```
-	gt : a, a -> Try({}, [NotGt(Str), ..]) where [a.is_gt : a, a -> Bool]
+	gt : a, a -> Try({}, [NotGt(Str)]) where [a.is_gt : a, a -> Bool]
 	gt = |actual, threshold|
 		if actual > threshold {
 			Ok({})
@@ -173,7 +173,7 @@ Assert :: [].{
 	## Assert.gte(count, 1)?
 	## Assert.gte(count, 1) ? MyTag
 	## ```
-	gte : a, a -> Try({}, [NotGte(Str), ..]) where [a.is_gte : a, a -> Bool]
+	gte : a, a -> Try({}, [NotGte(Str)]) where [a.is_gte : a, a -> Bool]
 	gte = |actual, threshold|
 		if actual >= threshold {
 			Ok({})
@@ -187,7 +187,7 @@ Assert :: [].{
 	## Assert.lt(errors, 10)?
 	## Assert.lt(errors, 10) ? MyTag
 	## ```
-	lt : a, a -> Try({}, [NotLt(Str), ..]) where [a.is_lt : a, a -> Bool]
+	lt : a, a -> Try({}, [NotLt(Str)]) where [a.is_lt : a, a -> Bool]
 	lt = |actual, threshold|
 		if actual < threshold {
 			Ok({})
@@ -201,7 +201,7 @@ Assert :: [].{
 	## Assert.lte(errors, 5)?
 	## Assert.lte(errors, 5) ? MyTag
 	## ```
-	lte : a, a -> Try({}, [NotLte(Str), ..]) where [a.is_lte : a, a -> Bool]
+	lte : a, a -> Try({}, [NotLte(Str)]) where [a.is_lte : a, a -> Bool]
 	lte = |actual, threshold|
 		if actual <= threshold {
 			Ok({})
@@ -210,7 +210,7 @@ Assert :: [].{
 		}
 
 	## Config for [Assert.eventually] and [Assert.eventually!]. Only
-	## `sleep!` is required (basic-cli's `Sleep.millis!` fits), the timeout
+	## `sleep!` is required ([niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s `Sleep.millis!` fits), the timeout
 	## and the delays between attempts have defaults.
 	EventuallyConfig := {
 		sleep! : U64 => {},
@@ -251,7 +251,7 @@ Assert :: [].{
 		##     Assert.contains(todos.get(1)?, "milk")
 		## }) ? |e| TodosShouldSettle(e)
 		## ```
-		eventually! : Eventually, (() => Try(val, thunk_err)), (val -> Try(out, check_err)) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		eventually! : Eventually, (() => Try(val, thunk_err)), (val -> Try(out, check_err)) => Try(out, [Timeout({ last : Str, waited_ms : U64 })])
 		eventually! = |self, thunk!, check|
 			poll!(
 				self,
@@ -268,7 +268,7 @@ Assert :: [].{
 		## ```roc
 		## assert.eq!(|| fetch_count!(), "2 items left") ? |e| CountShouldSettle(e)
 		## ```
-		eq! : Eventually, (() => Try(val, thunk_err)), val => Try({}, [Timeout({ last : Str, waited_ms : U64 }), ..]) where [val.is_eq : val, val -> Bool]
+		eq! : Eventually, (() => Try(val, thunk_err)), val => Try({}, [Timeout({ last : Str, waited_ms : U64 })]) where [val.is_eq : val, val -> Bool]
 		eq! = |self, thunk!, expected|
 			Eventually.eventually!(self, thunk!, |value| Assert.eq(value, expected))
 
@@ -278,7 +278,7 @@ Assert :: [].{
 		## ```roc
 		## body = assert.ok!(|| Http.get_utf8!(health_url)) ? |e| ServerShouldBoot(e)
 		## ```
-		ok! : Eventually, (() => Try(val, thunk_err)) => Try(val, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		ok! : Eventually, (() => Try(val, thunk_err)) => Try(val, [Timeout({ last : Str, waited_ms : U64 })])
 		ok! = |self, thunk!|
 			poll!(
 				self,
@@ -292,7 +292,7 @@ Assert :: [].{
 		## Assert the thunk eventually errors, returning the error. For
 		## waiting on something to go away: a server shutting down, a
 		## file deleted.
-		err! : Eventually, (() => Try(val, thunk_err)) => Try(thunk_err, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		err! : Eventually, (() => Try(val, thunk_err)) => Try(thunk_err, [Timeout({ last : Str, waited_ms : U64 })])
 		err! = |self, thunk!|
 			poll!(
 				self,
@@ -309,13 +309,13 @@ Assert :: [].{
 		# sleeping counts toward the timeout, and no sleep overshoots it,
 		# so `timeout_ms: 300` sleeps exactly 300ms before giving up (in
 		# delays of 100 then 200).
-		poll! : Eventually, (() => Try(val, thunk_err)), (Try(val, thunk_err) -> Try(out, Str)) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		poll! : Eventually, (() => Try(val, thunk_err)), (Try(val, thunk_err) -> Try(out, Str)) => Try(out, [Timeout({ last : Str, waited_ms : U64 })])
 		poll! = |self, thunk!, judge|
 			Eventually.retry!(self, thunk!, judge, 0, self.intervals_ms)
 
 		# `waited_ms` accumulates the sleeps so far, `intervals_ms`
 		# shrinks until its last delay repeats.
-		retry! : Eventually, (() => Try(val, thunk_err)), (Try(val, thunk_err) -> Try(out, Str)), U64, List(U64) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+		retry! : Eventually, (() => Try(val, thunk_err)), (Try(val, thunk_err) -> Try(out, Str)), U64, List(U64) => Try(out, [Timeout({ last : Str, waited_ms : U64 })])
 		retry! = |self, thunk!, judge, waited_ms, intervals_ms|
 			match judge(thunk!()) {
 				Ok(out) => Ok(out)
@@ -343,7 +343,7 @@ Assert :: [].{
 	}
 
 	## A retrying assertion for values that settle asynchronously. Build it
-	## once at the top of a test, capturing `sleep!` (basic-cli's
+	## once at the top of a test, capturing `sleep!` ([niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s
 	## `Sleep.millis!` fits), then assert with it anywhere without passing
 	## `sleep!` again:
 	##
@@ -384,7 +384,7 @@ Assert :: [].{
 	## ```roc
 	## Assert.eventually!({ sleep!: Sleep.millis! }, || fetch_count!(), |count| Assert.eq(count, 2))?
 	## ```
-	eventually! : EventuallyConfig, (() => Try(val, thunk_err)), (val -> Try(out, check_err)) => Try(out, [Timeout({ last : Str, waited_ms : U64 }), ..])
+	eventually! : EventuallyConfig, (() => Try(val, thunk_err)), (val -> Try(out, check_err)) => Try(out, [Timeout({ last : Str, waited_ms : U64 })])
 	eventually! = |config, thunk!, check|
 		Assert.eventually(config).eventually!(thunk!, check)
 }

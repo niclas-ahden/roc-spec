@@ -17,7 +17,7 @@
 ##
 ## Roc has no parameterized modules, so these functions take an
 ## `effects` record of platform functions as their first argument. Each module's
-## docs show the record it needs, built from basic-cli.
+## docs show the record it needs, built from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli).
 ##
 ## See the README for a complete runner, and `examples/` for runnable versions.
 package

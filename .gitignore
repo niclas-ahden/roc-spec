@@ -9,3 +9,6 @@ generated-docs/
 
 # Throwaway Postgres data dir created by tests.roc
 .pg-test-db/
+
+# The catch-alls above ignore extensionless files, but this one must ship
+!LICENSE

@@ -2,7 +2,7 @@
 ##
 ## Roc has no parameterized modules, so these functions take an
 ## `effects` record of platform functions as their first argument. Build it once
-## from basic-cli's modules and pass it in:
+## from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s modules and pass it in:
 ##
 ## ```roc
 ## effects = {

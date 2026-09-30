@@ -4,14 +4,13 @@
 ## They accept a generic `db` connection and a `query!` function, making them
 ## compatible with any PostgreSQL client library.
 ##
-## Example with roc-pg:
+## Example with [roc-pg](https://github.com/niclas-ahden/roc-pg):
 ## ```roc
 ## import pg.Client
-## import pg.Cmd
 ## import spec.Pg
 ##
 ## query! = |client, sql|
-##     Client.command!(Cmd.new(sql), client).map_ok(|_| {})
+##     client.execute!(sql, []).map_ok(|_| {})
 ##
 ## Pg.with_truncate!(query!, client, ["schema_migrations"], |client|
 ##     # test code
@@ -25,8 +24,8 @@ Pg :: [].{
 	## `pg_connect!`.
 	##
 	## `auth` uses the same `[Password(Str), NoPassword]` shape as
-	## roc-database-url rather than any one client's tag names, so map it to
-	## whatever your client wants (roc-pg calls the empty case `NoAuth`).
+	## [roc-database-url](https://github.com/niclas-ahden/roc-database-url) rather than any one client's tag names, so map it to
+	## whatever your client wants ([roc-pg](https://github.com/niclas-ahden/roc-pg) calls the empty case `NoAuth`).
 	Connection : {
 		host : Str,
 		port : U16,
@@ -46,13 +45,15 @@ Pg :: [].{
 	##
 	## Effects used: `{ env_var!, pg_connect! }`. Your `pg_connect!` adapts the
 	## [Connection] to your client's own connect function, which is where a
-	## client-specific setting like roc-pg's `timeout_ms` goes:
+	## client-specific setting like [roc-pg](https://github.com/niclas-ahden/roc-pg)'s `timeout_ms` goes:
 	##
 	## ```roc
 	## db = Pg.worker_db!({
 	##     env_var!: Env.var_str!,
 	##     pg_connect!: |{ host, port, user, database, auth }|
-	##         Client.connect!(tcp_effects, {
+	##         Client.connect!({
+	##             connect!: Tcp.connect!,
+	##             random_u64!: Random.seed_u64!,
 	##             host,
 	##             port,
 	##             user,
