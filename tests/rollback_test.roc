@@ -1,5 +1,5 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
 	spec: "../package/main.roc",
 	pg: "https://github.com/niclas-ahden/roc-pg/releases/download/0.2.0/EGCCBmR793d6wQJzX8aS9994n9nzz6dgMvhKuU6PqQ12.tar.zst",
 	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.4.0/6sKP47ivkLchhdvDMDe9ajVoiFPEP57ZgQoEy2WTDczX.tar.zst",

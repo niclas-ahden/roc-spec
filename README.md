@@ -15,7 +15,7 @@ A Roc package for writing and running parallel tests with isolated test environm
 ```roc
 # tests/math_test.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
     spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.6.0/2FTxk7WLfJLBJmHi3eG5c1w5ftqKH6wC3HEWsDWZ6K9t.tar.zst",
 }
 
@@ -30,7 +30,7 @@ main! = |_|
 ```roc
 # run_tests.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
     spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.6.0/2FTxk7WLfJLBJmHi3eG5c1w5ftqKH6wC3HEWsDWZ6K9t.tar.zst",
 }
 
@@ -158,7 +158,7 @@ Each returns `Try({}, ...)` (except `ok`, `err` and `just`, which return the val
 ```roc
 # tests/test_users.roc
 app [main!] {
-    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.27.0/HZanbveSUDoJF8LypR663eH7PpaKEKG36eErEQzmV1Qs.tar.zst",
+    pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
     spec: "https://github.com/niclas-ahden/roc-spec/releases/download/0.6.0/2FTxk7WLfJLBJmHi3eG5c1w5ftqKH6wC3HEWsDWZ6K9t.tar.zst",
 }
 

@@ -510,7 +510,7 @@ kill_timed_out! = |effects, child| {
 
 	match kill!(child) {
 		Err(e) =>
-			TimedOut({ stdout: [], stderr: [], kill_error: describe("could not kill it: ", e) })
+			TimedOut({ stdout: [], stderr: [], kill_error: "could not kill it: ${Str.inspect(e)}" })
 
 		Ok({}) =>
 			match wait!(child) {
@@ -537,7 +537,7 @@ kill_timed_out! = |effects, child| {
 					TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" })
 
 				Err(IO(e)) =>
-					TimedOut({ stdout: [], stderr: [], kill_error: describe("could not reap it: ", e) })
+					TimedOut({ stdout: [], stderr: [], kill_error: "could not reap it: ${Str.inspect(e)}" })
 			}
 	}
 }
@@ -711,7 +711,7 @@ spawn_one! = |effects, test_file, worker_index, config| {
 				passed: Bool.False,
 				duration_ms: 0,
 				output: "",
-				error: describe("before_each! failed: ", e),
+				error: "before_each! failed: ${Str.inspect(e)}",
 			})
 		}
 
@@ -735,21 +735,10 @@ spawn_one! = |effects, test_file, worker_index, config| {
 						passed: Bool.False,
 						duration_ms: 0,
 						output: "",
-						error: describe("Failed to spawn process: ", e),
+						error: "Failed to spawn process: ${Str.inspect(e)}",
 					})
 				}
 			}
 		}
 	}
 }
-
-## Describe an error value from the caller's `effects` or `Config`.
-##
-## WORKAROUND for roc-lang/roc#11060: the obvious `"prefix: ${Str.inspect(e)}"`
-## panics `roc build` with "reached unreachable code" when `e`'s type arrives
-## through the inferred `effects` record rather than being known here.
-## Concatenating the two halves compiles. Inline the interpolation at the three
-## call sites and drop this helper once that issue is fixed.
-describe : Str, err -> Str
-describe = |prefix, e|
-	Str.concat(prefix, Str.inspect(e))
