@@ -1,19 +1,19 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.TestEnvironment
 
-## TestEnvironment.start! scheduling behavior, exercised with stub effects so
+## TestEnvironment.start! scheduling behavior, exercised with stub hooks so
 ## no real processes are spawned.
 main! = |_args| {
-	effects = { sleep!: |_ms| {} }
+	hooks = { sleep!: |_ms| Ok({}) }
 
 	# All workers ready at once
 	all_ready = TestEnvironment.start!(
-		effects,
+		hooks,
 		{
 			count: 3,
 			spawn!: |_index| Ok({}),
@@ -32,7 +32,7 @@ main! = |_args| {
 
 	# No worker ever ready: every index is reported after max_attempts rounds
 	never_ready = TestEnvironment.start!(
-		effects,
+		hooks,
 		{
 			count: 3,
 			spawn!: |_index| Ok({}),
@@ -57,7 +57,7 @@ main! = |_args| {
 
 	# Only even workers become ready: exactly the odd one is reported
 	partial = TestEnvironment.start!(
-		effects,
+		hooks,
 		{
 			count: 3,
 			spawn!: |_index| Ok({}),
@@ -82,7 +82,7 @@ main! = |_args| {
 
 	# A spawn failure propagates
 	spawn_fails = TestEnvironment.start!(
-		effects,
+		hooks,
 		{
 			count: 3,
 			spawn!: |index| if index == 1 Err(SpawnBoom(index)) else Ok({}),
@@ -101,7 +101,7 @@ main! = |_args| {
 
 	# Zero workers: trivially ready
 	zero_workers = TestEnvironment.start!(
-		effects,
+		hooks,
 		{
 			count: 0.U16,
 			spawn!: |_index| Ok({}),

@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
@@ -15,6 +15,7 @@ main! = |_args| {
 	# passes, b_fails_test stops the run, and c_never_runs_test never starts.
 	# Without sorted discovery, which tests get to run varies by machine.
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -23,7 +24,7 @@ main! = |_args| {
 		fail_fast: Bool.True,
 	}
 
-	results = Spec.run!(Effects.spec, "tests/order_fixtures", config)?
+	results = Spec.run!(PlatformHooks.basic_cli, "tests/order_fixtures", config)?
 
 	names = results.map(|r| r.name)
 	ran_expected_tests = names == ["a_first_test", "b_fails_test"]

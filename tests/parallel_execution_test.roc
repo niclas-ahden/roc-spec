@@ -1,12 +1,12 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import pf.Utc
 import spec.Spec
-import Effects
+import PlatformHooks
 
 now_ms! : {} => U64
 now_ms! = |{}| Utc.to_millis_since_epoch(Utc.now!()).to_u64_wrap()
@@ -15,6 +15,7 @@ no_envs = |_index| []
 
 run_with_workers! = |max_workers| {
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -24,7 +25,7 @@ run_with_workers! = |max_workers| {
 	}
 
 	start = now_ms!({})
-	results = Spec.run!(Effects.spec, "tests/parallel_fixtures", config)?
+	results = Spec.run!(PlatformHooks.basic_cli, "tests/parallel_fixtures", config)?
 	end = now_ms!({})
 
 	Ok({

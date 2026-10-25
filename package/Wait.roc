@@ -1,15 +1,12 @@
 ## Waiting/retrying helpers for integration tests.
 ##
-## Roc has no parameterized modules, so these functions take an
-## `effects` record of platform functions as their first argument. Build it once
-## from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s modules and pass it in:
+## Roc has no parameterized modules, so these functions take a
+## `PlatformHooks` record of platform functions as their first argument, the
+## same one `Spec` takes (see `Spec` for the whole record). `Wait` uses
+## `sleep!`, and `for_server!` also `http_send!` and `send_options`:
 ##
 ## ```roc
-## effects = {
-##     http_send!: Http.send!,
-##     sleep!: Sleep.millis!,
-## }
-## Wait.for_server!(effects, "http://localhost:8000/health", {
+## Wait.for_server!(hooks, "http://localhost:8000/health", {
 ##     max_attempts: 50,
 ##     delay_ms: 50,
 ##     request_timeout_ms: 5000,
@@ -50,22 +47,22 @@ Wait :: [].{
 	## and `max_attempts: 1` both mean "try once, do not retry". The last
 	## failure is carried out in `ConditionNotMet`.
 	##
-	## Only the `sleep!` effect is used:
+	## Only the `sleep!` hook is used:
 	##
 	## ```roc
 	## Wait.until!({ sleep!: Sleep.millis! }, || check_something!(), { max_attempts: 10, delay_ms: 100 }) ? ConditionNotMet
 	## ```
 	until! : _, (() => Try({}, cond_err)), Attempts => Try({}, [ConditionNotMet(cond_err), ..err])
-	until! = |effects, condition!, { max_attempts, delay_ms }| {
-		sleep! = effects.sleep!
+	until! = |hooks, condition!, { max_attempts, delay_ms }| {
+		sleep! = hooks.sleep!
 		match condition!() {
 			Ok({}) => Ok({})
 			Err(e) =>
 				if max_attempts <= 1 {
 					Err(ConditionNotMet(e))
 				} else {
-					sleep!(delay_ms)
-					Wait.until!(effects, condition!, { max_attempts: max_attempts - 1, delay_ms })
+					_ = sleep!(delay_ms)
+					Wait.until!(hooks, condition!, { max_attempts: max_attempts - 1, delay_ms })
 				}
 			}
 	}
@@ -74,7 +71,7 @@ Wait :: [].{
 	##
 	## ```roc
 	## # Simple usage (2.5 second timeout)
-	## Wait.for_server!(effects, "http://localhost:8000/health", {
+	## Wait.for_server!(hooks, "http://localhost:8000/health", {
 	##     max_attempts: 50,
 	##     delay_ms: 50,
 	##     request_timeout_ms: 5000,
@@ -82,7 +79,7 @@ Wait :: [].{
 	## })?
 	##
 	## # With custom Host header for reverse proxy (60 second timeout)
-	## Wait.for_server!(effects, "http://127.0.0.1:9100/", {
+	## Wait.for_server!(hooks, "http://127.0.0.1:9100/", {
 	##     max_attempts: 300,
 	##     delay_ms: 200,
 	##     request_timeout_ms: 5000,
@@ -90,8 +87,8 @@ Wait :: [].{
 	## })?
 	## ```
 	for_server! : _, Str, ServerConfig => Try({}, [ServerNotReady(Str), ..err])
-	for_server! = |effects, url, config| {
-		http_send! = effects.http_send!
+	for_server! = |hooks, url, config| {
+		http_send! = hooks.http_send!
 
 		condition! = || {
 			request =
@@ -100,7 +97,7 @@ Wait :: [].{
 					->Request.with_headers(config.headers.map(|(name, value)| { name, value }))
 					->Request.with_timeout(TimeoutMilliseconds(config.request_timeout_ms))
 
-			match http_send!(request) {
+			match http_send!(request, hooks.send_options) {
 				Ok(response) => {
 					status = Response.status(response)
 
@@ -115,7 +112,7 @@ Wait :: [].{
 			}
 		}
 
-		match Wait.until!(effects, condition!, { max_attempts: config.max_attempts, delay_ms: config.delay_ms }) {
+		match Wait.until!(hooks, condition!, { max_attempts: config.max_attempts, delay_ms: config.delay_ms }) {
 			Ok({}) => Ok({})
 			Err(ConditionNotMet(_)) => Err(ServerNotReady(url))
 		}

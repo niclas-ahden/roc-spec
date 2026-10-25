@@ -1,22 +1,22 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Cmd
 import pf.Stdout
 import spec.Server
-import Effects
+import PlatformHooks
 
 # The working server fixture is a node script (there is no basic-webserver
 # platform for the new compiler yet).
-working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working_server.mjs"])
+working_server_cmd = || Cmd.new("node").args(["tests/server_fixtures/working_server.mjs"])
 
 # Test: Server command doesn't exist
 # Expected: Server.with! returns ServerSpawnFailed
 main! = |_args| {
 	result = Server.with!(
-		Effects.server,
+		PlatformHooks.basic_cli,
 		Cmd.new("tests/server_fixtures/nonexistent_server_that_does_not_exist"),
 		|_base_url| {
 			# This callback should never run

@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
@@ -14,6 +14,7 @@ with_worker_id = |index| [("TEST_WORKER_ID", index.to_str())]
 main! = |_args| {
 	# Test 1: before_each! succeeds -> test should pass
 	config_ok = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -22,7 +23,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_ok = Spec.run!(Effects.spec, "tests/before_each_fixtures", config_ok)?
+	results_ok = Spec.run!(PlatformHooks.basic_cli, "tests/before_each_fixtures", config_ok)?
 
 	passed_when_hook_ok =
 		match results_ok.first() {
@@ -32,6 +33,7 @@ main! = |_args| {
 
 	# Test 2: before_each! fails -> test should fail
 	config_fail = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: no_envs,
 		before_each!: |_index| Err(HookFailed),
@@ -40,7 +42,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_fail = Spec.run!(Effects.spec, "tests/before_each_fixtures", config_fail)?
+	results_fail = Spec.run!(PlatformHooks.basic_cli, "tests/before_each_fixtures", config_fail)?
 
 	failed_when_hook_fails =
 		match results_fail.first() {
@@ -52,6 +54,7 @@ main! = |_args| {
 	# Use 2 workers, 2 tests - verify each gets index 0 or 1
 	# We pass the index via env var and have the test output it
 	config_index = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 2,
 		worker_envs: with_worker_id,
 		before_each!: |_index| Ok({}),
@@ -60,7 +63,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_index = Spec.run!(Effects.spec, "tests/env_fixtures", config_index)?
+	results_index = Spec.run!(PlatformHooks.basic_cli, "tests/env_fixtures", config_index)?
 
 	# Both tests should pass and have different indices
 	all_index_passed = results_index.all(|r| r.passed)

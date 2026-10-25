@@ -6,11 +6,13 @@
 ## roc examples/basic_test.roc
 ## ```
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Cmd
+import pf.Env
+import pf.Http
 import pf.OsStr
 import pf.Path
 import pf.Sleep
@@ -19,25 +21,28 @@ import pf.Utc
 import spec.Assert
 import spec.Spec
 
-# Place this in a helper module which you import in all tests:
-effects = {
-	spawn_test!: |file, envs|
-		Cmd.new(OsStr.utf8("roc"))
-			.args_str(["--opt=speed", file])
-			.envs_str(envs)
-			.stdout(Capture)
-			.stderr(Capture)
-			.spawn_leashed!(),
-	try_wait!: Cmd.Child.try_wait!,
-	kill!: Cmd.Child.kill!,
+# basic-cli's own functions, passed as they are. Place this in a helper module
+# which you import in all tests:
+hooks = {
+	new: Cmd.new,
+	os_str: OsStr.from_str,
+	spawn!: Cmd.Command.spawn_leashed!,
+	poll!: Cmd.Child.poll!,
 	wait!: Cmd.Child.wait!,
-	list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
+	kill!: Cmd.Child.kill!,
+	close!: Cmd.Child.close!,
+	path: Path.utf8,
+	list!: Path.list!,
 	print!: Stdout.line!,
-	utc_now!: Utc.now!,
-	sleep_millis!: Sleep.millis!,
+	now!: Utc.now!,
+	sleep!: Sleep.millis!,
+	env_var!: Env.var_str!,
+	http_send!: Http.send!,
+	send_options: Http.SendOptions.{},
 }
 
 config = {
+	test_command: ["roc", "--opt=speed"],
 	max_workers: 2.U16,
 	worker_envs: |index| [("ROC_SPEC_EXAMPLE_WORKER", index.to_str())],
 	before_each!: |_index| Ok({}),
@@ -49,7 +54,7 @@ config = {
 main! = |_args| {
 	# Run every *_test.roc file under examples/tests on 2 parallel workers
 	Stdout.line!("--- All tests")?
-	results = Spec.run!(effects, "examples/tests", config)?
+	results = Spec.run!(hooks, "examples/tests", config)?
 
 	passed = results.count_if(|r| r.passed)
 	total = results.len()
@@ -60,7 +65,7 @@ main! = |_args| {
 
 	# Run only the tests whose filename contains "math"
 	Stdout.line!("--- Filtered: math")?
-	filtered = Spec.run_filtered!(effects, "examples/tests", config, "math")?
+	filtered = Spec.run_filtered!(hooks, "examples/tests", config, "math")?
 
 	Assert.eq(filtered.len(), 1) ? |e| UnexpectedFilteredCount(e)
 	names = filtered.map(|r| r.name)

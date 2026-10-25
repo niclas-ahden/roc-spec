@@ -1,25 +1,18 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Cmd
-import pf.OsStr
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
-## The shared effects with a capture budget far below what the fixture prints.
-effects = {
-	..Effects.spec,
-	spawn_test!: |file, envs|
-		Cmd.new(OsStr.utf8("roc"))
-			.args_str(["--opt=speed", file])
-			.envs_str(envs)
-			.stdout(Capture)
-			.stderr(Capture)
-			.output_limit(10_000)
-			.spawn_leashed!(),
+## The shared hooks, spawning with a capture budget far below what the fixture
+## prints.
+hooks = {
+	..PlatformHooks.basic_cli,
+	spawn!: |cmd| Cmd.Command.spawn_leashed!(Cmd.Command.output_limit(cmd, MaxBytes(10_000))),
 }
 
 # Test: a test that prints more than its capture budget
@@ -27,6 +20,7 @@ effects = {
 # output it managed to print and a note saying how to raise the limit.
 main! = |_args| {
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: |_index| [],
 		before_each!: |_index| Ok({}),
@@ -35,7 +29,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results = Spec.run!(effects, "tests/output_limit_fixtures", config)?
+	results = Spec.run!(hooks, "tests/output_limit_fixtures", config)?
 
 	match results.first() {
 		Err(_) => {

@@ -210,10 +210,11 @@ Assert :: [].{
 		}
 
 	## Config for [Assert.eventually] and [Assert.eventually!]. Only
-	## `sleep!` is required ([niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s `Sleep.millis!` fits), the timeout
+	## `sleep!` is required, and it is the type of
+	## [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s `Sleep.millis!`, so that goes in as it is. The timeout
 	## and the delays between attempts have defaults.
 	EventuallyConfig := {
-		sleep! : U64 => {},
+		sleep! : U64 => Try({}, [Interrupted]),
 		timeout_ms : U64 ?? 5000,
 		intervals_ms : List(U64) ?? [100, 250, 500, 1000],
 	}
@@ -224,7 +225,7 @@ Assert :: [].{
 	## asynchronously: a browser rendering, a server booting, a file
 	## another process writes.
 	Eventually :: {
-		sleep! : U64 => {},
+		sleep! : U64 => Try({}, [Interrupted]),
 		timeout_ms : U64,
 		intervals_ms : List(U64),
 	}.{
@@ -327,7 +328,9 @@ Assert :: [].{
 						remaining = self.timeout_ms - waited_ms
 						capped = if delay > remaining remaining else delay
 						sleep! = self.sleep!
-						sleep!(capped)
+						# An interrupted sleep only ends this wait early, which
+						# the next attempt and the timeout already account for.
+						_ = sleep!(capped)
 						Eventually.retry!(self, thunk!, judge, waited_ms + capped, rest)
 					}
 				}

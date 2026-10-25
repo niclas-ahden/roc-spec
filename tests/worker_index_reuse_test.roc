@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
@@ -16,6 +16,7 @@ main! = |_args| {
 	# Run 4 tests with only 2 workers
 	# This means worker indices 0 and 1 must each be reused at least once
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 2,
 		worker_envs: with_worker_index,
 		before_each!: |_index| Ok({}),
@@ -24,7 +25,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results = Spec.run!(Effects.spec, "tests/worker_reuse_fixtures", config)?
+	results = Spec.run!(PlatformHooks.basic_cli, "tests/worker_reuse_fixtures", config)?
 
 	if results.len() != 4 {
 		Stdout.line!("FAIL: Expected 4 test results, got ${results.len().to_str()}")?

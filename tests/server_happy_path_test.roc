@@ -1,5 +1,5 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
@@ -8,17 +8,17 @@ import pf.Http
 import pf.Url
 import pf.Stdout
 import spec.Server
-import Effects
+import PlatformHooks
 
 # The working server fixture is a node script (there is no basic-webserver
 # platform for the new compiler yet).
-working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working_server.mjs"])
+working_server_cmd = || Cmd.new("node").args(["tests/server_fixtures/working_server.mjs"])
 
 # Test: Server starts successfully, callback runs, result returned
 # Expected: Callback is called with correct base_url, callback result is returned
 main! = |_args| {
 	result = Server.with_timeout!(
-		Effects.server,
+		PlatformHooks.basic_cli,
 		working_server_cmd(),
 		{ max_attempts: 50, delay_ms: 200 },
 		|base_url|
@@ -28,7 +28,7 @@ main! = |_args| {
 				Err(WrongBaseUrl)
 			} else {
 				# Make a request to verify server is responding
-				match Http.get_utf8!(Url.parse(base_url) ? InvalidUrl) {
+				match Http.get_utf8!(Url.parse(base_url) ? InvalidUrl, {}) {
 					Ok(body) =>
 						if body == "OK" {
 							# Return a specific value to verify it's propagated

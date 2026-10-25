@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
@@ -14,6 +14,7 @@ with_worker_id = |index| [("TEST_WORKER_ID", index.to_str())]
 main! = |_args| {
 	# Test 1: with worker_envs -> test should pass
 	config_with_env = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: with_worker_id,
 		before_each!: |_index| Ok({}),
@@ -22,7 +23,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_with_env = Spec.run!(Effects.spec, "tests/env_fixtures", config_with_env)?
+	results_with_env = Spec.run!(PlatformHooks.basic_cli, "tests/env_fixtures", config_with_env)?
 
 	passed_with_env =
 		match results_with_env.first() {
@@ -32,6 +33,7 @@ main! = |_args| {
 
 	# Test 2: without worker_envs -> test should fail
 	config_no_env = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -40,7 +42,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_no_env = Spec.run!(Effects.spec, "tests/env_fixtures", config_no_env)?
+	results_no_env = Spec.run!(PlatformHooks.basic_cli, "tests/env_fixtures", config_no_env)?
 
 	failed_without_env =
 		match results_no_env.first() {
@@ -50,6 +52,7 @@ main! = |_args| {
 
 	# Test 3: with max_workers:2, verify both workers get different indices
 	config_multi = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 2,
 		worker_envs: with_worker_id,
 		before_each!: |_index| Ok({}),
@@ -58,7 +61,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_multi = Spec.run!(Effects.spec, "tests/env_fixtures", config_multi)?
+	results_multi = Spec.run!(PlatformHooks.basic_cli, "tests/env_fixtures", config_multi)?
 
 	all_multi_passed = results_multi.all(|r| r.passed)
 	indices = results_multi.map(

@@ -1,17 +1,18 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
 main! = |_args| {
 	# Run sequentially so we can compare durations
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -20,7 +21,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results = Spec.run!(Effects.spec, "tests/duration_fixtures", config)?
+	results = Spec.run!(PlatformHooks.basic_cli, "tests/duration_fixtures", config)?
 
 	if results.len() != 2 {
 		Stdout.line!("FAIL: Expected 2 test results, got ${results.len().to_str()}")?

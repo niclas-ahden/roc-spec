@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 ## The other server tests run `Server.with!` directly, so they only ever
 ## exercise it interpreted. This one goes through `Spec.run!`, which spawns
@@ -17,6 +17,7 @@ main! = |_args| {
 	# One fixture, so one worker. The port comes from the worker convention:
 	# worker 0 gets 9100.
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 1,
 		worker_envs: |index| [
 			("WORKER_INDEX", index.to_str()),
@@ -28,7 +29,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results = Spec.run!(Effects.spec, "tests/server_spec_fixtures", config)?
+	results = Spec.run!(PlatformHooks.basic_cli, "tests/server_spec_fixtures", config)?
 
 	match results.first() {
 		Ok(result) =>

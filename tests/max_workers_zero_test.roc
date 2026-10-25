@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
@@ -15,6 +15,7 @@ main! = |_args| {
 	# an empty Ok would be a green run that tested nothing.
 
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 0,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -24,7 +25,7 @@ main! = |_args| {
 	}
 
 	# Use a directory with a single simple test
-	match Spec.run!(Effects.spec, "tests/ignore_fixtures", config) {
+	match Spec.run!(PlatformHooks.basic_cli, "tests/ignore_fixtures", config) {
 		Err(MaxWorkersIsZero) =>
 			Stdout.line!("PASS: max_workers: 0 is rejected instead of reporting a green run")
 

@@ -1,26 +1,26 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Cmd
 import pf.Stdout
 import spec.Server
-import Effects
+import PlatformHooks
 
 # The working server fixture is a node script (there is no basic-webserver
 # platform for the new compiler yet).
-working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working_server.mjs"])
+working_server_cmd = || Cmd.new("node").args(["tests/server_fixtures/working_server.mjs"])
 
 # The same server, but it waits before binding, so it is still alive and
 # still silent for a while after it is spawned.
-slow_bind_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/slow_bind_server.mjs"])
+slow_bind_server_cmd = || Cmd.new("node").args(["tests/server_fixtures/slow_bind_server.mjs"])
 
 # Start a server on a port that is already taken, and expect Server.with! to
 # report the conflict rather than the answer the other server gives.
 expect_port_conflict! = |cmd, label| {
 	inner_result = Server.with!(
-		Effects.server,
+		PlatformHooks.basic_cli,
 		cmd,
 		|_inner_base_url| {
 			# This callback should never run - inner server should crash
@@ -72,7 +72,7 @@ expect_port_conflict! = |cmd, label| {
 main! = |_args| {
 	# Outer server starts on port 8000 (default)
 	outer_result = Server.with_timeout!(
-		Effects.server,
+		PlatformHooks.basic_cli,
 		working_server_cmd(),
 		{ max_attempts: 50, delay_ms: 200 },
 		|_outer_base_url| {

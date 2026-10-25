@@ -1,5 +1,5 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
@@ -9,11 +9,11 @@ import pf.Url
 import pf.Sleep
 import pf.Stdout
 import spec.Server
-import Effects
+import PlatformHooks
 
 # The working server fixture is a node script (there is no basic-webserver
 # platform for the new compiler yet).
-working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working_server.mjs"])
+working_server_cmd = || Cmd.new("node").args(["tests/server_fixtures/working_server.mjs"])
 
 # Test: Server is killed even when callback fails
 # Expected: After Server.with! returns (with callback error), the port should be free
@@ -24,7 +24,7 @@ working_server_cmd = || Cmd.new("node").args_str(["tests/server_fixtures/working
 main! = |_args| {
 	# First call - callback fails
 	result1 = Server.with_timeout!(
-		Effects.server,
+		PlatformHooks.basic_cli,
 		working_server_cmd(),
 		{ max_attempts: 50, delay_ms: 200 },
 		|_base_url| {
@@ -38,15 +38,15 @@ main! = |_args| {
 		Err(IntentionalCallbackError) => {
 			# Good - now verify cleanup by starting another server on same port
 			# Small delay to ensure cleanup completed
-			Sleep.millis!(100)
+			Sleep.millis!(100)?
 
 			result2 = Server.with_timeout!(
-				Effects.server,
+				PlatformHooks.basic_cli,
 				working_server_cmd(),
 				{ max_attempts: 50, delay_ms: 200 },
 				|base_url|
 				# If we get here, cleanup worked - the port was free
-					match Http.get_utf8!(Url.parse(base_url) ? InvalidUrl) {
+					match Http.get_utf8!(Url.parse(base_url) ? InvalidUrl, {}) {
 						Ok(body) =>
 							if body == "OK" {
 								Ok(SecondServerWorked)

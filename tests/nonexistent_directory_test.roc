@@ -1,16 +1,17 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
 main! = |_args| {
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 4,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -21,7 +22,7 @@ main! = |_args| {
 
 	# Run on nonexistent directory - must error, so a typo'd test_dir can
 	# never produce a green "0/0 passed" run
-	match Spec.run!(Effects.spec, "tests/this_directory_does_not_exist_12345", config) {
+	match Spec.run!(PlatformHooks.basic_cli, "tests/this_directory_does_not_exist_12345", config) {
 		Err(TestDirNotFound(dir)) =>
 			if dir == "tests/this_directory_does_not_exist_12345" {
 				Stdout.line!("PASS: Nonexistent directory returns Err(TestDirNotFound) with the directory")

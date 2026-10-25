@@ -1,35 +1,34 @@
 ## The main entrypoint for running your tests. Use `Spec.run!` or `Spec.run_filtered!`
-## and pass in the platform `effects` and a `Config`.
+## and pass in your `PlatformHooks` and a `Config`.
 ##
-## Roc has no parameterized modules, so these functions take an
-## `effects` record of platform functions as their first argument. Each effect is
-## shaped by what `Spec` needs rather than mirroring the platform's API, which
-## keeps the record small. Build it once from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s modules:
+## Roc has no parameterized modules, so these functions take a
+## `PlatformHooks` record of platform functions as their first argument. The
+## hooks are [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s own functions, passed as they are,
+## so build the record once and hand the same one to every module of this
+## package. Each function only reads the hooks it uses.
 ##
 ## ```roc
-## effects = {
-##     # Start one test file as its own process group, with the given env vars.
-##     # The command is yours: change the opt level, wrap tests in systemd-run,
-##     # or run something that is not `roc` at all. Spawn leashed, so that a
-##     # test killed on timeout takes its descendants with it.
-##     spawn_test!: |file, envs|
-##         Cmd.new(OsStr.utf8("roc"))
-##             .args_str(["--opt=speed", file])
-##             .envs_str(envs)
-##             .stdout(Capture)
-##             .stderr(Capture)
-##             .spawn_leashed!(),
-##     try_wait!: Cmd.Child.try_wait!,
-##     kill!: Cmd.Child.kill!,
+## hooks = {
+##     new: Cmd.new,
+##     os_str: OsStr.from_str,
+##     # Leashed, so a test killed on timeout takes its descendants with it.
+##     spawn!: Cmd.Command.spawn_leashed!,
+##     poll!: Cmd.Child.poll!,
 ##     wait!: Cmd.Child.wait!,
-##     # List a directory's entries as path strings, e.g. "tests/foo_test.roc".
-##     list_dir!: |dir| Path.list!(Path.utf8(dir)).map_ok(|entries| entries.map(Path.display)),
+##     kill!: Cmd.Child.kill!,
+##     close!: Cmd.Child.close!,
+##     path: Path.utf8,
+##     list!: Path.list!,
 ##     print!: Stdout.line!,
-##     utc_now!: Utc.now!,
-##     sleep_millis!: Sleep.millis!,
+##     now!: Utc.now!,
+##     sleep!: Sleep.millis!,
+##     env_var!: Env.var_str!,
+##     http_send!: Http.send!,
+##     send_options: Http.SendOptions.{},
 ## }
 ##
-## Spec.run!(effects, "tests", {
+## Spec.run!(hooks, "tests", {
+##     test_command: ["roc", "--opt=speed"],
 ##     max_workers: 4,
 ##     worker_envs: |index| [("DATABASE_NAME", "test_${index.to_str()}")],
 ##     before_each!: |_| Ok({}),
@@ -39,12 +38,13 @@
 ## })
 ## ```
 ##
-## `spawn_test!` has to capture both streams: a test's output is reported from
-## what `try_wait!` and `wait!` hand back, and `spawn_leashed!` inherits the
-## streams unless told otherwise. Do not use `Pipe`, which needs a reader that
-## `Spec` does not run. A test that prints more than the capture budget
-## (`Cmd.output_limit`, 16 MiB by default) is cancelled by the platform and
-## reported as failed, with what it printed up to that point.
+## `Spec` uses `new`, `os_str`, `spawn!`, `poll!`, `wait!`, `kill!`, `path`,
+## `list!`, `print!`, `now!` and `sleep!`. It starts each test as
+## `test_command` followed by the test file, with both streams captured: a
+## test's output is reported from what `poll!` and `wait!` hand back. A test
+## that prints more than the capture budget (16 MiB by default) is cancelled
+## by the platform and reported as failed, with what it printed up to that
+## point.
 import Format
 
 Spec :: [].{
@@ -70,12 +70,16 @@ Spec :: [].{
 	## shows up as `passed: Bool.False` in the returned `TestResult`s.
 	Error(err) : [
 		MaxWorkersIsZero,
+		EmptyTestCommand,
 		TestDirNotFound(Str),
 		..err,
 	]
 
 	## Configuration for parallel test execution.
 	##
+	## - `test_command`: The program and arguments that run one test, with the
+	##   test file appended, e.g. `["roc", "--opt=speed"]`. Change the opt level,
+	##   wrap tests in systemd-run, or run something that is not `roc` at all
 	## - `max_workers`: Maximum number of tests to run concurrently, at least 1
 	## - `worker_envs`: Function that returns the environment variables to set for a given worker index
 	## - `before_each!`: Hook called before each test (e.g., to truncate database)
@@ -86,6 +90,7 @@ Spec :: [].{
 	## Example:
 	## ```roc
 	## {
+	##     test_command: ["roc", "--opt=speed"],
 	##     max_workers: 32,
 	##     worker_envs: |index| [
 	##         ("APP_PORT", (8000 + index).to_str()),
@@ -98,6 +103,7 @@ Spec :: [].{
 	## }
 	## ```
 	Config(err) : {
+		test_command : List(Str),
 		max_workers : U16,
 		worker_envs : U64 -> List((Str, Str)),
 		before_each! : U64 => Try({}, err),
@@ -109,7 +115,8 @@ Spec :: [].{
 	## Run all `*_test.roc` files in the given directory and subdirectories in parallel.
 	##
 	## Returns a list of test results, one for each test file discovered and run.
-	## Errors with `MaxWorkersIsZero` if `max_workers` is 0, and with
+	## Errors with `MaxWorkersIsZero` if `max_workers` is 0, with
+	## `EmptyTestCommand` if `test_command` is empty, and with
 	## `TestDirNotFound` if `test_dir` cannot be listed.
 	## See `run_filtered!` to run a subset of tests by name pattern.
 	##
@@ -118,14 +125,12 @@ Spec :: [].{
 	## stable order. With `fail_fast`, tests that never started are absent
 	## entirely, so the list can be shorter than the number of files discovered.
 	##
-	## The `effects` record is left unannotated because some of its fields are
-	## shaped by your platform's own types, like the process handle
-	## `spawn_test!` returns. The exception is `utc_now!`, which is pinned to
-	## `() => U128`, an instant in nanoseconds. See the module docs above for one
-	## built from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli).
+	## The `PlatformHooks` record is left unannotated because its fields are
+	## your platform's own functions, with its own types. See the module docs
+	## above for one built from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli).
 	run! : _, Str, Config(cfg_err) => Try(List(TestResult), Error(err))
-	run! = |effects, test_dir, config|
-		Spec.run_filtered!(effects, test_dir, config, "")
+	run! = |hooks, test_dir, config|
+		Spec.run_filtered!(hooks, test_dir, config, "")
 
 	## Run tests matching a pattern.
 	##
@@ -140,28 +145,29 @@ Spec :: [].{
 	##
 	## Recursively searches all subdirectories for test files.
 	##
-	## Returns `Err(MaxWorkersIsZero)` if `max_workers` is 0, and
+	## Returns `Err(MaxWorkersIsZero)` if `max_workers` is 0,
+	## `Err(EmptyTestCommand)` if `test_command` is empty, and
 	## `Err(TestDirNotFound(test_dir))` if `test_dir` cannot be listed.
 	##
 	## Like `run!`, results come back in completion order rather than in
 	## discovery order.
 	run_filtered! : _, Str, Config(cfg_err), Str => Try(List(TestResult), Error(err))
-	run_filtered! = |effects, test_dir, config, pattern| {
+	run_filtered! = |hooks, test_dir, config, pattern| {
 		# Zero workers can never run anything, and reporting an empty run as a
 		# success is the worst way for a test runner to fail: green output, no
 		# tests. Refuse the config instead.
 		if config.max_workers == 0 {
 			Err(MaxWorkersIsZero)
+		} else if config.test_command.is_empty() {
+			Err(EmptyTestCommand)
 		} else {
-			list_dir! = effects.list_dir!
-
 			# A `test_dir` that cannot be listed is an error for the same
 			# reason zero workers is: a typo'd directory must not produce a
 			# green "0/0 passed" run. Deeper in the tree an unlistable entry
 			# just means "this is a file, not a directory", so only the top
 			# level is strict.
-			entries = list_dir!(test_dir) ? |_| TestDirNotFound(test_dir)
-			test_files = process_directory_entries!(effects, entries, [])
+			entries = list_dir!(hooks, test_dir) ? |_| TestDirNotFound(test_dir)
+			test_files = process_directory_entries!(hooks, entries, [])
 
 			# Name each test here, where `test_dir` is still in scope, so a name
 			# is relative to the directory you asked to run rather than to how
@@ -189,7 +195,7 @@ Spec :: [].{
 			if ordered_tests.is_empty() {
 				Ok([])
 			} else {
-				run_with_rolling_window!(effects, ordered_tests, config)
+				run_with_rolling_window!(hooks, ordered_tests, config)
 			}
 		}
 	}
@@ -256,19 +262,34 @@ expect extract_test_name("examples/tests\\math_test.roc", "examples/tests") == "
 expect extract_test_name("tests\\nested\\foo_test.roc", "tests") == "nested/foo_test"
 expect extract_test_name("elsewhere/foo_test.roc", "tests") == "elsewhere/foo_test"
 
-## Recursively find all test files in a directory and its subdirectories.
-find_test_files_recursive! = |effects, dir, acc| {
-	list_dir! = effects.list_dir!
+## A directory's entries as path strings, e.g. "tests/foo_test.roc".
+list_dir! = |hooks, dir| {
+	list! = hooks.list!
+	path = hooks.path
 
-	match list_dir!(dir) {
+	list!(path(dir)).map_ok(|entries| entries.map(|entry| entry.display()))
+}
+
+## The current instant in nanoseconds since the epoch, which durations are
+## measured in.
+now_nanos! : _ => U128
+now_nanos! = |hooks| {
+	now! = hooks.now!
+
+	now!().to_nanos_since_epoch().to_u128_wrap()
+}
+
+## Recursively find all test files in a directory and its subdirectories.
+find_test_files_recursive! = |hooks, dir, acc| {
+	match list_dir!(hooks, dir) {
 		Err(_) => acc # Not a directory or can't read it, return accumulated files
 		Ok(entries) =>
-			process_directory_entries!(effects, entries, acc)
+			process_directory_entries!(hooks, entries, acc)
 		}
 }
 
 ## Process directory entries, collecting test files and recursing into subdirectories.
-process_directory_entries! = |effects, entries, acc| {
+process_directory_entries! = |hooks, entries, acc| {
 	match entries {
 		[] => acc
 		[entry, .. as rest] => {
@@ -287,27 +308,27 @@ process_directory_entries! = |effects, entries, acc| {
 
 			# Try to recurse into this entry as a potential subdirectory
 			# (list_dir! will fail for files, which is handled gracefully)
-			with_subdir = find_test_files_recursive!(effects, entry, with_file)
+			with_subdir = find_test_files_recursive!(hooks, entry, with_file)
 
 			# Continue processing remaining entries
-			process_directory_entries!(effects, rest, with_subdir)
+			process_directory_entries!(hooks, rest, with_subdir)
 		}
 	}
 }
 
 ## Rolling window scheduler - spawns replacement tests as others complete.
-run_with_rolling_window! = |effects, test_files, config| {
+run_with_rolling_window! = |hooks, test_files, config| {
 	max_workers = config.max_workers.to_u64()
 
 	# Split into initial batch and remaining tests
 	{ before: initial_files, others: remaining_files } = test_files.split_at(max_workers)
 
 	# Spawn initial batch (up to max_workers)
-	initial_spawned = spawn_batch_with_indices!(effects, initial_files, config, 0)
+	initial_spawned = spawn_batch_with_indices!(hooks, initial_files, config, 0)
 
 	# Process tests: poll for completion, process finished ones, spawn new ones as slots free up
 	process_rolling_window!(
-		effects,
+		hooks,
 		only_running(initial_spawned),
 		only_failed(initial_spawned),
 		remaining_files,
@@ -325,7 +346,7 @@ run_with_rolling_window! = |effects, test_files, config| {
 ## are different things (one has a live child to poll, the other is already a
 ## result) and keeping them apart is what leaves this scheduler with no case
 ## that cannot happen.
-process_rolling_window! = |effects, running, already_failed, pending_files, config, max_workers, results, stopping|
+process_rolling_window! = |hooks, running, already_failed, pending_files, config, max_workers, results, stopping|
 	match already_failed {
 		[first_failed, .. as other_failed] => {
 			# Report tests that never started before polling the live ones
@@ -336,20 +357,20 @@ process_rolling_window! = |effects, running, already_failed, pending_files, conf
 
 			# Don't spawn replacements if stopping
 			if now_stopping {
-				process_rolling_window!(effects, running, other_failed, [], config, max_workers, with_result, now_stopping)
+				process_rolling_window!(hooks, running, other_failed, [], config, max_workers, with_result, now_stopping)
 			} else {
 				# Spawn replacement if any pending
-				(spawned, new_pending) = spawn_next!(effects, pending_files, worker_index, config)
+				(spawned, new_pending) = spawn_next!(hooks, pending_files, worker_index, config)
 
 				match spawned {
 					NothingPending =>
-						process_rolling_window!(effects, running, other_failed, new_pending, config, max_workers, with_result, now_stopping)
+						process_rolling_window!(hooks, running, other_failed, new_pending, config, max_workers, with_result, now_stopping)
 
 					StartedRunning(started) =>
-						process_rolling_window!(effects, running.append(started), other_failed, new_pending, config, max_workers, with_result, now_stopping)
+						process_rolling_window!(hooks, running.append(started), other_failed, new_pending, config, max_workers, with_result, now_stopping)
 
 					StartedFailed(failed) =>
-						process_rolling_window!(effects, running, other_failed.append(failed), new_pending, config, max_workers, with_result, now_stopping)
+						process_rolling_window!(hooks, running, other_failed.append(failed), new_pending, config, max_workers, with_result, now_stopping)
 					}
 			}
 		}
@@ -358,7 +379,7 @@ process_rolling_window! = |effects, running, already_failed, pending_files, conf
 			if running.is_empty() {
 				Ok(results) # Nothing running and nothing left to report, we're done
 			} else {
-				poll_for_completion!(effects, running, already_failed, pending_files, config, max_workers, results, stopping)
+				poll_for_completion!(hooks, running, already_failed, pending_files, config, max_workers, results, stopping)
 			}
 		}
 
@@ -367,40 +388,40 @@ process_rolling_window! = |effects, running, already_failed, pending_files, conf
 ## `already_failed` is empty at every call site, since the scheduler reports
 ## those first. It is carried anyway rather than assumed, so a future caller
 ## cannot silently drop tests waiting to be reported.
-poll_for_completion! = |effects, running, already_failed, pending_files, config, max_workers, results, stopping| {
-	sleep_millis! = effects.sleep_millis!
+poll_for_completion! = |hooks, running, already_failed, pending_files, config, max_workers, results, stopping| {
+	sleep! = hooks.sleep!
 
-	match find_completed!(effects, running, config) {
+	match find_completed!(hooks, running, config) {
 		Found({ completed, worker_index, poll_result, remaining }) => {
 			# Process the completed test
-			test_result = process_poll_result!(effects, completed, poll_result, config.quiet)
+			test_result = process_poll_result!(hooks, completed, poll_result, config.quiet)
 			now_stopping = stopping or (config.fail_fast and !test_result.passed)
 			with_result = results.append(test_result)
 
 			if now_stopping {
 				# Don't spawn replacements, just drain remaining running tests
-				process_rolling_window!(effects, remaining, already_failed, [], config, max_workers, with_result, now_stopping)
+				process_rolling_window!(hooks, remaining, already_failed, [], config, max_workers, with_result, now_stopping)
 			} else {
 				# Spawn replacement if any pending
-				(spawned, new_pending) = spawn_next!(effects, pending_files, worker_index, config)
+				(spawned, new_pending) = spawn_next!(hooks, pending_files, worker_index, config)
 
 				match spawned {
 					NothingPending =>
-						process_rolling_window!(effects, remaining, already_failed, new_pending, config, max_workers, with_result, now_stopping)
+						process_rolling_window!(hooks, remaining, already_failed, new_pending, config, max_workers, with_result, now_stopping)
 
 					StartedRunning(started) =>
-						process_rolling_window!(effects, remaining.append(started), already_failed, new_pending, config, max_workers, with_result, now_stopping)
+						process_rolling_window!(hooks, remaining.append(started), already_failed, new_pending, config, max_workers, with_result, now_stopping)
 
 					StartedFailed(failed) =>
-						process_rolling_window!(effects, remaining, already_failed.append(failed), new_pending, config, max_workers, with_result, now_stopping)
+						process_rolling_window!(hooks, remaining, already_failed.append(failed), new_pending, config, max_workers, with_result, now_stopping)
 					}
 			}
 		}
 
 		NoneCompleted => {
 			# No test finished yet, sleep briefly and try again
-			sleep_millis!(10)
-			poll_for_completion!(effects, running, already_failed, pending_files, config, max_workers, results, stopping)
+			_ = sleep!(10)
+			poll_for_completion!(hooks, running, already_failed, pending_files, config, max_workers, results, stopping)
 		}
 	}
 }
@@ -429,13 +450,11 @@ only_failed = |spawned|
 	)
 
 ## Poll all running tests to find one that completed or ran out of time.
-find_completed! = |effects, running, config|
-	find_completed_helper!(effects, running, [], config.per_test_timeout_ms)
+find_completed! = |hooks, running, config|
+	find_completed_helper!(hooks, running, [], config.per_test_timeout_ms)
 
-find_completed_helper! = |effects, remaining, checked, timeout_ms| {
-	try_wait! = effects.try_wait!
-	utc_now! : () => U128
-	utc_now! = effects.utc_now!
+find_completed_helper! = |hooks, remaining, checked, timeout_ms| {
+	poll! = hooks.poll!
 
 	match remaining {
 		[] =>
@@ -447,27 +466,27 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 			# Only a child still running is subject to the timeout below;
 			# everything else is a result, however the test ended.
 			outcome =
-				match try_wait!(child) {
-					Ok([output, ..]) =>
-						Done(Finished(output))
+				match poll!(child) {
+					Ok(Finished(output)) =>
+						Done(Finished(ended(output)))
 
-					Ok([]) =>
+					Ok(Running) =>
 						StillRunning
 
-					# The platform's own deadline (`Cmd.timeout_ms`) ran out
-					# before this loop's did. What it retained is what the
-					# test managed to print.
-					Err(Timeout(partial)) =>
+					# The platform's own deadline (`Cmd.timeout`) ran out before
+					# this loop's did. What it retained is what the test
+					# managed to print.
+					Err(CmdErr(TimedOut(partial))) =>
 						Done(TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" }))
 
-					Err(OutputLimit(partial)) =>
+					Err(CmdErr(OutputLimitExceeded(partial))) =>
 						Done(OutputLimitExceeded({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes }))
 
 					# A poll error is usually transient, so keep the test in the
 					# running list. The timeout still applies there: a child
 					# whose poll never recovers would otherwise stay in that
 					# list forever and hang the entire run.
-					Err(IO(_)) =>
+					Err(_) =>
 						StillRunning
 				}
 
@@ -481,18 +500,18 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 					})
 
 				StillRunning => {
-					elapsed_ms = (utc_now!().minus_saturated(start_time) // 1_000_000).to_u64_wrap()
+					elapsed_ms = (now_nanos!(hooks).minus_saturated(start_time) // 1_000_000).to_u64_wrap()
 
 					if elapsed_ms > timeout_ms {
 						Found({
 							completed: { name, start_time },
 							worker_index,
-							poll_result: kill_timed_out!(effects, child),
+							poll_result: kill_timed_out!(hooks, child),
 							remaining: checked.concat(rest),
 						})
 					} else {
 						# Not finished yet, keep looking
-						find_completed_helper!(effects, rest, checked.append(spawned), timeout_ms)
+						find_completed_helper!(hooks, rest, checked.append(spawned), timeout_ms)
 					}
 				}
 			}
@@ -504,9 +523,9 @@ find_completed_helper! = |effects, remaining, checked, timeout_ms| {
 ## result. Killing a leashed child takes down the test and anything it spawned,
 ## and reaping it hands back whatever it printed before it hung, which is the
 ## most useful part of a timeout report.
-kill_timed_out! = |effects, child| {
-	kill! = effects.kill!
-	wait! = effects.wait!
+kill_timed_out! = |hooks, child| {
+	kill! = hooks.kill!
+	wait! = hooks.wait!
 
 	match kill!(child) {
 		Err(e) =>
@@ -514,7 +533,8 @@ kill_timed_out! = |effects, child| {
 
 		Ok({}) =>
 			match wait!(child) {
-				Ok(output) =>
+				Ok(platform_output) => {
+					output = ended(platform_output)
 					match output.status {
 						# A test that exited 0 in the sliver between the poll
 						# and the kill beat the deadline by a hair, so report
@@ -527,28 +547,30 @@ kill_timed_out! = |effects, child| {
 						Exited(0) => Finished(output)
 						_ => TimedOut({ stdout: output.stdout_bytes, stderr: output.stderr_bytes, kill_error: "" })
 					}
+				}
 
-				Err(Timeout(partial)) =>
+				Err(CmdErr(TimedOut(partial))) =>
 					TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" })
 
 				# Both budgets ran out. The deadline is why it was killed, so
 				# that is what gets reported, along with what it printed.
-				Err(OutputLimit(partial)) =>
+				Err(CmdErr(OutputLimitExceeded(partial))) =>
 					TimedOut({ stdout: partial.stdout_bytes, stderr: partial.stderr_bytes, kill_error: "" })
 
-				Err(IO(e)) =>
+				Err(e) =>
 					TimedOut({ stdout: [], stderr: [], kill_error: "could not reap it: ${Str.inspect(e)}" })
 			}
 	}
 }
 
-## Process a poll result into a TestResult.
-process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
-	print! = effects.print!
-	utc_now! : () => U128
-	utc_now! = effects.utc_now!
+## How a child ended and what it printed, out of the platform's own output.
+ended = |output| { status: output.status, stdout_bytes: output.stdout_bytes, stderr_bytes: output.stderr_bytes }
 
-	end_time = utc_now!()
+## Process a poll result into a TestResult.
+process_poll_result! = |hooks, { name, start_time }, poll_result, quiet| {
+	print! = hooks.print!
+
+	end_time = now_nanos!(hooks)
 	duration_ms = (end_time.minus_saturated(start_time) // 1_000_000).to_u64_wrap()
 	duration = Format.format_duration(duration_ms)
 
@@ -562,7 +584,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 					_ = print!("${Format.green_check} ${name} (${duration})")
 					_ =
 						if !quiet {
-							print_output!(effects, stdout_str, stderr_str)
+							print_output!(hooks, stdout_str, stderr_str)
 						} else {
 							Ok({})
 						}
@@ -577,7 +599,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 
 				Exited(_) => {
 					_ = print!("${Format.red_x} ${name} (${duration})")
-					_ = print_output!(effects, stdout_str, stderr_str)
+					_ = print_output!(hooks, stdout_str, stderr_str)
 					{
 						name,
 						passed: Bool.False,
@@ -589,7 +611,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 
 				Signaled(signal) => {
 					_ = print!("${Format.red_x} ${name} (killed by signal ${signal.to_str()} after ${duration})")
-					_ = print_output!(effects, stdout_str, stderr_str)
+					_ = print_output!(hooks, stdout_str, stderr_str)
 					{
 						name,
 						passed: Bool.False,
@@ -606,7 +628,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 			stderr_str = Str.from_utf8_lossy(stderr)
 
 			_ = print!("${Format.red_x} ${name} (TIMEOUT after ${duration})")
-			_ = print_output!(effects, stdout_str, stderr_str)
+			_ = print_output!(hooks, stdout_str, stderr_str)
 			{
 				name,
 				passed: Bool.False,
@@ -621,7 +643,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 			stderr_str = Str.from_utf8_lossy(stderr)
 
 			_ = print!("${Format.red_x} ${name} (OUTPUT LIMIT exceeded after ${duration})")
-			_ = print_output!(effects, stdout_str, stderr_str)
+			_ = print_output!(hooks, stdout_str, stderr_str)
 			{
 				name,
 				passed: Bool.False,
@@ -635,7 +657,7 @@ process_poll_result! = |effects, { name, start_time }, poll_result, quiet| {
 
 ## What a test is told when the platform cancelled it for printing too much.
 output_limit_note : Str
-output_limit_note = "Test exceeded its output limit and was cancelled. Raise it with Cmd.output_limit in spawn_test!, or print less."
+output_limit_note = "Test exceeded its output limit and was cancelled. Print less, or raise the limit with Cmd.Command.output_limit in your spawn! hook."
 
 ## Add a note on how a test ended to what it wrote on stderr.
 with_note : Str, Str -> Str
@@ -643,8 +665,8 @@ with_note = |stderr_str, note|
 	if stderr_str.is_empty() note else "${stderr_str}\n${note}"
 
 ## Print captured stdout/stderr with indentation
-print_output! = |effects, stdout_str, stderr_str| {
-	print! = effects.print!
+print_output! = |hooks, stdout_str, stderr_str| {
+	print! = hooks.print!
 
 	_ =
 		if !stdout_str.is_empty() {
@@ -663,39 +685,36 @@ print_output! = |effects, stdout_str, stderr_str| {
 ##
 ## Reports which list the caller should file the result under, so neither list
 ## has to hold a test of the other kind.
-spawn_next! = |effects, pending_files, freed_worker_index, config|
+spawn_next! = |hooks, pending_files, freed_worker_index, config|
 	match pending_files {
 		[] =>
 		# No more pending tests
 			(NothingPending, [])
 
 		[next_file, .. as other_pending] =>
-			match spawn_one!(effects, next_file, freed_worker_index, config) {
+			match spawn_one!(hooks, next_file, freed_worker_index, config) {
 				Spawned(started) => (StartedRunning(started), other_pending)
 				AlreadyFailed(failed) => (StartedFailed(failed), other_pending)
 			}
 		}
 
 ## Spawn a batch of tests with sequential worker indices starting from start_index.
-spawn_batch_with_indices! = |effects, test_files, config, start_index| {
+spawn_batch_with_indices! = |hooks, test_files, config, start_index| {
 	indexed = test_files.map_with_index(|file, i| (file, start_index + i))
-	spawn_batch_helper!(effects, indexed, config, [])
+	spawn_batch_helper!(hooks, indexed, config, [])
 }
 
-spawn_batch_helper! = |effects, remaining, config, acc|
+spawn_batch_helper! = |hooks, remaining, config, acc|
 	match remaining {
 		[] => acc
 		[(file, worker_index), .. as rest] => {
-			result = spawn_one!(effects, file, worker_index, config)
-			spawn_batch_helper!(effects, rest, config, acc.append(result))
+			result = spawn_one!(hooks, file, worker_index, config)
+			spawn_batch_helper!(hooks, rest, config, acc.append(result))
 		}
 	}
 
-spawn_one! = |effects, test_file, worker_index, config| {
-	spawn_test! = effects.spawn_test!
-	print! = effects.print!
-	utc_now! : () => U128
-	utc_now! = effects.utc_now!
+spawn_one! = |hooks, test_file, worker_index, config| {
+	print! = hooks.print!
 	before_each! = config.before_each!
 	worker_envs = config.worker_envs
 
@@ -716,12 +735,12 @@ spawn_one! = |effects, test_file, worker_index, config| {
 		}
 
 		Ok({}) => {
-			start_time = utc_now!()
+			start_time = now_nanos!(hooks)
 			envs = worker_envs(worker_index)
 			# The per-test timeout is enforced by the poll loop rather than by
 			# wrapping the command in `timeout`, so it needs no coreutils and
 			# keeps millisecond resolution.
-			spawn_result = spawn_test!(test_file.path, envs)
+			spawn_result = spawn_test!(hooks, config.test_command, test_file.path, envs)
 
 			match spawn_result {
 				Ok(child) =>
@@ -735,10 +754,32 @@ spawn_one! = |effects, test_file, worker_index, config| {
 						passed: Bool.False,
 						duration_ms: 0,
 						output: "",
-						error: "Failed to spawn process: ${Str.inspect(e)}",
+						error: "Failed to spawn process: ${e}",
 					})
 				}
 			}
+		}
+	}
+}
+
+## Start one test as `test_command` followed by the test file, with the
+## worker's env vars set and both streams captured, through the `spawn!` hook.
+spawn_test! = |hooks, test_command, file, envs| {
+	new = hooks.new
+	os_str = hooks.os_str
+	spawn! = hooks.spawn!
+
+	match test_command {
+		# `run_filtered!` refuses an empty command before anything is spawned.
+		[] => Err("test_command is empty")
+		[program, .. as args] => {
+			cmd =
+				new(os_str(program))
+					.args(args.append(file).map(os_str))
+					.envs(envs.map(|(name, value)| (os_str(name), os_str(value))))
+					.stdout(Capture)
+					.stderr(Capture)
+			spawn!(cmd).map_err(|e| Str.inspect(e))
 		}
 	}
 }

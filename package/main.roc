@@ -15,9 +15,11 @@
 ## - `Pg`: PostgreSQL isolation, per-worker databases, rollback and truncate.
 ## - `Wait`: retry a condition, or poll a URL until it answers.
 ##
-## Roc has no parameterized modules, so these functions take an
-## `effects` record of platform functions as their first argument. Each module's
-## docs show the record it needs, built from [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli).
+## Roc has no parameterized modules, so these functions take a
+## `PlatformHooks` record of platform functions as their first argument. The
+## hooks are [niclas-ahden/basic-cli](https://github.com/niclas-ahden/basic-cli)'s own functions, passed as they are,
+## so one record serves every module. `Spec` shows the whole record, and each
+## function only reads the hooks it uses.
 ##
 ## See the README for a complete runner, and `examples/` for runnable versions.
 package

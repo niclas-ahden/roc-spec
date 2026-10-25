@@ -1,16 +1,17 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
 main! = |_args| {
 	config = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 4,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -20,7 +21,7 @@ main! = |_args| {
 	}
 
 	# Run on empty directory
-	results = Spec.run!(Effects.spec, "tests/empty_fixtures", config)?
+	results = Spec.run!(PlatformHooks.basic_cli, "tests/empty_fixtures", config)?
 
 	if results.is_empty() {
 		Stdout.line!("PASS: Empty directory returns empty results list")

@@ -1,21 +1,25 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
+import pf.Cmd
+import pf.OsStr
 import pf.Stdout
 import spec.Server
 
 # Every effect is stubbed, so this pins the address `Server` derives without
-# spawning anything: `spawn_server!` hands back a fake child that `try_wait!`
-# and `close!` accept, and `http_get!` reports ready on the first probe.
-stub_effects = |env| {
+# spawning anything: `spawn!` hands back a fake child that `poll!` and
+# `close!` accept, and `http_send!` reports ready on the first probe.
+stub_hooks = |env| {
 	env_var!: env,
-	spawn_server!: |_cmd, port| Ok(FakeChild(port)),
+	os_str: OsStr.from_str,
+	spawn!: |_cmd| Ok(FakeChild),
 	close!: |_child| Ok({}),
-	try_wait!: |_child| Ok([]),
-	http_get!: |_url| Ok("ready"),
-	sleep!: |_millis| {},
+	poll!: |_child| Ok(Running),
+	http_send!: |_request, _options| Ok(Answered),
+	send_options: {},
+	sleep!: |_millis| Ok({}),
 }
 
 # The worker environment a runner sets up: worker 2 of a run based at 9300,
@@ -38,7 +42,7 @@ sequential_env = |name|
 # Neither convention set.
 bare_env = |_name| Err(VarNotFound)
 
-run! = |env| Server.with_timeout!(stub_effects(env), FakeCmd, { max_attempts: 1, delay_ms: 1 }, |base_url| Ok(base_url))
+run! = |env| Server.with_timeout!(stub_hooks(env), Cmd.new("unused"), { max_attempts: 1, delay_ms: 1 }, |base_url| Ok(base_url))
 
 # Test: the address comes from the worker convention, falling back to PORT
 # Expected: worker index shifts the base port, ROC_SPEC_HOST sets the host,

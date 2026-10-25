@@ -10,7 +10,7 @@
 ## import spec.Pg
 ##
 ## query! = |client, sql|
-##     client.execute!(sql, []).map_ok(|_| {})
+##     client.execute_unchecked!(sql, []).map_ok(|_| {})
 ##
 ## Pg.with_truncate!(query!, client, ["schema_migrations"], |client|
 ##     # test code
@@ -43,36 +43,32 @@ Pg :: [].{
 	## `NoPassword`, for the trust or peer authentication a local test database
 	## usually runs with.
 	##
-	## Effects used: `{ env_var!, pg_connect! }`. Your `pg_connect!` adapts the
-	## [Connection] to your client's own connect function, which is where a
-	## client-specific setting like [roc-pg](https://github.com/niclas-ahden/roc-pg)'s `timeout_ms` goes:
+	## Of the `PlatformHooks` it uses `env_var!`. `pg_connect!` adapts the
+	## [Connection] to your client's own connect function, which is where
+	## client-specific settings like [roc-pg](https://github.com/niclas-ahden/roc-pg)'s timeouts go:
 	##
 	## ```roc
-	## db = Pg.worker_db!({
-	##     env_var!: Env.var_str!,
-	##     pg_connect!: |{ host, port, user, database, auth }|
-	##         Client.connect!({
-	##             connect!: Tcp.connect!,
-	##             random_u64!: Random.seed_u64!,
-	##             host,
-	##             port,
-	##             user,
-	##             database,
-	##             auth: match auth {
-	##                 Password(p) => Password(p)
-	##                 NoPassword => NoAuth
-	##             },
-	##             timeout_ms: 5_000,
-	##         }),
-	## })?
+	## db = Pg.worker_db!(hooks, |{ host, port, user, database, auth }|
+	##     Client.connect!({
+	##         connect!: |h, p| Tcp.connect!(h, p, { connect_timeout: Duration.seconds(5), io_timeout: Duration.seconds(35) }),
+	##         random_u64!: Random.seed_u64!,
+	##         host,
+	##         port,
+	##         user,
+	##         database,
+	##         auth: match auth {
+	##             Password(p) => Password(p)
+	##             NoPassword => NoAuth
+	##         },
+	##         statement_timeout: Duration.seconds(30),
+	##     }))?
 	## ```
-	worker_db! : _ => Try(ok, TestEnvironment.EnvError(err))
-	worker_db! = |effects| {
-		env_var! = effects.env_var!
-		pg_connect! = effects.pg_connect!
+	worker_db! : _, (Connection => Try(ok, err)) => Try(ok, TestEnvironment.EnvError(err))
+	worker_db! = |hooks, pg_connect!| {
+		env_var! = hooks.env_var!
 
 		base_db_name = env_var!("ROC_SPEC_BASE_DATABASE_NAME") ? |_| EnvVarNotSet("ROC_SPEC_BASE_DATABASE_NAME")
-		worker_index = TestEnvironment.worker_index!({ env_var!: env_var! })?
+		worker_index = TestEnvironment.worker_index!(hooks)?
 		db_name = "${base_db_name}_${worker_index.to_str()}"
 
 		host = env_var!("PG_HOST") ? |_| EnvVarNotSet("PG_HOST")

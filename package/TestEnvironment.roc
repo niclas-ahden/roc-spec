@@ -7,10 +7,10 @@
 ## 2. **For individual tests**: `with!`, `worker_url!`, `worker_index!` and
 ##    `fetch!` read the worker context the runner set up.
 ##
-## Roc has no parameterized modules, so these functions take an
-## `effects` record of platform functions as their first argument. Each function
-## documents the fields it uses, and it only needs those fields: build exactly
-## the record a call needs, there is no master record to assemble. Database
+## Roc has no parameterized modules, so these functions take a
+## `PlatformHooks` record of platform functions as their first argument, the
+## same one `Spec` takes (see `Spec` for the whole record). Each function
+## documents the hooks it uses and only reads those. Database
 ## helpers live in `Pg` (see `Pg.worker_db!`), so nothing here pulls in a
 ## database dependency.
 ##
@@ -25,11 +25,9 @@
 ## import spec.TestEnvironment
 ## import spec.Assert
 ##
-## env = { env_var!: Env.var_str! }
-##
 ## main! = |_args|
-##     TestEnvironment.with!(env, |worker_url| {
-##         body = TestEnvironment.fetch!({ http_send!: Http.send! }, "${worker_url}/users")?
+##     TestEnvironment.with!(hooks, |worker_url| {
+##         body = TestEnvironment.fetch!(hooks, "${worker_url}/users")?
 ##         Assert.contains(body, "test")?
 ##         Ok({})
 ##     })
@@ -54,7 +52,7 @@ TestEnvironment :: [].{
 	##
 	## `WorkersNotReady` carries the indices that never answered and every
 	## handle `spawn!` returned, in index order, so the runner can ask the
-	## silent workers how they ended (`Cmd.Child.try_wait!` gives an exit
+	## silent workers how they ended (`Cmd.Child.poll!` gives an exit
 	## status and captured output). A managed child is terminated when its
 	## last reference is released, so a handle dropped inside `start!` would
 	## be gone before the error reached the caller.
@@ -104,21 +102,21 @@ TestEnvironment :: [].{
 	##   answered. A `spawn!` failure returns its error as is. The workers
 	##   spawned before it are released on the way out, which terminates them.
 	##
-	## Effects used: `{ sleep! }`.
+	## Hooks used: `sleep!`.
 	##
 	## ```roc
-	## servers = TestEnvironment.start!({ sleep!: Sleep.millis! }, {
+	## servers = TestEnvironment.start!(hooks, {
 	##     count: 32,
 	##     spawn!: |index| {
 	##         port = (8000 + index).to_str()
-	##         Cmd.new("./server").env_str("PORT", port).spawn_leashed!() ? |e| SpawnFailed(e)
+	##         Cmd.new("./server").env("PORT", OsStr.from_str(port)).spawn_leashed!() ? |e| SpawnFailed(e)
 	##     },
 	##     ready!: |index| check_health!(8000 + index),
 	##     max_attempts: 150,
 	##     delay_ms: 200,
 	## })?
 	##
-	## results = Spec.run!(effects, "tests", config)?
+	## results = Spec.run!(hooks, "tests", config)?
 	##
 	## # Holding the handles until here kept the servers up for the run.
 	## # Close them now that it is over.
@@ -127,7 +125,7 @@ TestEnvironment :: [].{
 	## }
 	## ```
 	start! : _, Workers(handle, err) => Try(List(handle), StartError(handle, err))
-	start! = |effects, { count, spawn!: inner_spawn!, ready!: inner_ready!, max_attempts, delay_ms }| {
+	start! = |hooks, { count, spawn!: inner_spawn!, ready!: inner_ready!, max_attempts, delay_ms }| {
 		# Phase 1: spawn everything.
 		var $handles = []
 		var $pending = []
@@ -140,7 +138,7 @@ TestEnvironment :: [].{
 
 		# Phase 2: probe all not-yet-ready workers each round, until none are
 		# left or the rounds run out.
-		match wait_for_workers!(effects, inner_ready!, $pending, 0, max_attempts, delay_ms) {
+		match wait_for_workers!(hooks, inner_ready!, $pending, 0, max_attempts, delay_ms) {
 			Ok({}) => Ok($handles)
 			Err(NotReady(not_ready)) => Err(WorkersNotReady({ not_ready, handles: $handles }))
 		}
@@ -148,18 +146,18 @@ TestEnvironment :: [].{
 
 	## Run a test with the worker's URL.
 	##
-	## Effects used: `{ env_var! }`.
+	## Hooks used: `env_var!`.
 	##
 	## ```roc
-	## TestEnvironment.with!(env, |worker_url| {
-	##     body = TestEnvironment.fetch!({ http_send!: Http.send! }, "${worker_url}/health")?
+	## TestEnvironment.with!(hooks, |worker_url| {
+	##     body = TestEnvironment.fetch!(hooks, "${worker_url}/health")?
 	##     Assert.contains(body, "ok")?
 	##     Ok({})
 	## })
 	## ```
 	with! : _, (Str => Try(ok, EnvError(err))) => Try(ok, EnvError(err))
-	with! = |effects, test!| {
-		url = TestEnvironment.worker_url!(effects)?
+	with! = |hooks, test!| {
+		url = TestEnvironment.worker_url!(hooks)?
 		test!(url)
 	}
 
@@ -170,14 +168,14 @@ TestEnvironment :: [].{
 	## Returns `Err(HttpError(status, url, body_preview))` for non-2xx status
 	## codes, and `Err(InvalidUrl(url))` for a URL that does not parse.
 	##
-	## Effects used: `{ http_send! }`.
+	## Hooks used: `http_send!` and `send_options`.
 	##
 	## ```roc
-	## body = TestEnvironment.fetch!({ http_send!: Http.send! }, "${worker_url}/api/users")?
+	## body = TestEnvironment.fetch!(hooks, "${worker_url}/api/users")?
 	## ```
 	fetch! : _, Str => Try(Str, [HttpError(U16, Str, Str), InvalidUrl(Str), ..err])
-	fetch! = |effects, url| {
-		http_send! = effects.http_send!
+	fetch! = |hooks, url| {
+		http_send! = hooks.http_send!
 
 		# The Host header is the URL's authority, which roc-url parses out for
 		# us. Slicing the string by hand worked only for `http://host:port/…`
@@ -195,7 +193,7 @@ TestEnvironment :: [].{
 				->Request.with_headers([{ name: "Host", value: authority }])
 				->Request.with_timeout(TimeoutMilliseconds(10000))
 
-		response = http_send!(request)?
+		response = http_send!(request, hooks.send_options)?
 		status = Response.status(response)
 		response_body = Response.body(response)
 		body = Str.from_utf8_lossy(response_body)
@@ -215,11 +213,11 @@ TestEnvironment :: [].{
 	## `ROC_SPEC_HOST` defaults to "localhost", and `WORKER_INDEX` to 0 (for
 	## sequential/single-worker tests). `ROC_SPEC_BASE_PORT` must be set.
 	##
-	## Effects used: `{ env_var! }`.
+	## Hooks used: `env_var!`.
 	worker_url! : _ => Try(Str, EnvError(err))
-	worker_url! = |effects| {
-		port = TestEnvironment.worker_port!(effects)?
-		host = TestEnvironment.worker_host!(effects)
+	worker_url! = |hooks| {
+		port = TestEnvironment.worker_port!(hooks)?
+		host = TestEnvironment.worker_host!(hooks)
 
 		Ok("http://${host}:${port.to_str()}")
 	}
@@ -231,15 +229,15 @@ TestEnvironment :: [].{
 	## in parts rather than as a URL builds it from this and `worker_host!`,
 	## so the convention lives in one place.
 	##
-	## Effects used: `{ env_var! }`.
+	## Hooks used: `env_var!`.
 	worker_port! : _ => Try(U16, EnvError(err))
-	worker_port! = |effects| {
-		env_var! = effects.env_var!
+	worker_port! = |hooks| {
+		env_var! = hooks.env_var!
 
 		base_port_str = env_var!("ROC_SPEC_BASE_PORT") ? |_| EnvVarNotSet("ROC_SPEC_BASE_PORT")
 		base_port = U16.from_str(base_port_str) ? |_| InvalidEnvVar("ROC_SPEC_BASE_PORT")
 
-		worker_index = TestEnvironment.worker_index!(effects)?
+		worker_index = TestEnvironment.worker_index!(hooks)?
 
 		Ok(base_port + worker_index)
 	}
@@ -251,10 +249,10 @@ TestEnvironment :: [].{
 	## while suites behind a reverse proxy or a vhost point it at the name the
 	## server actually answers to.
 	##
-	## Effects used: `{ env_var! }`.
+	## Hooks used: `env_var!`.
 	worker_host! : _ => Str
-	worker_host! = |effects| {
-		env_var! = effects.env_var!
+	worker_host! = |hooks| {
+		env_var! = hooks.env_var!
 
 		match env_var!("ROC_SPEC_HOST") {
 			Ok(host) => host
@@ -269,10 +267,10 @@ TestEnvironment :: [].{
 	## `InvalidEnvVar`: silently routing such a test to worker 0's port and
 	## database would surface as baffling cross-test interference instead.
 	##
-	## Effects used: `{ env_var! }`.
+	## Hooks used: `env_var!`.
 	worker_index! : _ => Try(U16, EnvError(err))
-	worker_index! = |effects| {
-		env_var! = effects.env_var!
+	worker_index! = |hooks| {
+		env_var! = hooks.env_var!
 
 		match env_var!("WORKER_INDEX") {
 			Ok(s) => {
@@ -285,8 +283,8 @@ TestEnvironment :: [].{
 }
 
 ## Probe every pending worker until none are left or the rounds run out.
-wait_for_workers! = |effects, ready!, pending, attempt, max_attempts, delay_ms| {
-	sleep! = effects.sleep!
+wait_for_workers! = |hooks, ready!, pending, attempt, max_attempts, delay_ms| {
+	sleep! = hooks.sleep!
 
 	if pending.is_empty() {
 		Ok({})
@@ -298,8 +296,8 @@ wait_for_workers! = |effects, ready!, pending, attempt, max_attempts, delay_ms| 
 		if still_pending.is_empty() {
 			Ok({})
 		} else {
-			sleep!(delay_ms)
-			wait_for_workers!(effects, ready!, still_pending, attempt + 1, max_attempts, delay_ms)
+			_ = sleep!(delay_ms)
+			wait_for_workers!(hooks, ready!, still_pending, attempt + 1, max_attempts, delay_ms)
 		}
 	}
 }

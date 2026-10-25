@@ -1,11 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
 }
 
 import pf.Stdout
 import spec.Spec
-import Effects
+import PlatformHooks
 
 no_envs = |_index| []
 
@@ -16,6 +16,7 @@ fail_marker = "QUIET_TEST_FAIL_MARKER"
 main! = |_args| {
 	# Test 1: quiet mode still captures output in result.output
 	config_quiet = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 2,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -24,10 +25,11 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_quiet = Spec.run!(Effects.spec, "tests/quiet_fixtures", config_quiet)?
+	results_quiet = Spec.run!(PlatformHooks.basic_cli, "tests/quiet_fixtures", config_quiet)?
 
 	# Test 2: non-quiet mode also captures output
 	config_verbose = {
+		test_command: ["roc", "--opt=speed"],
 		max_workers: 2,
 		worker_envs: no_envs,
 		before_each!: |_index| Ok({}),
@@ -36,7 +38,7 @@ main! = |_args| {
 		fail_fast: Bool.False,
 	}
 
-	results_verbose = Spec.run!(Effects.spec, "tests/quiet_fixtures", config_verbose)?
+	results_verbose = Spec.run!(PlatformHooks.basic_cli, "tests/quiet_fixtures", config_verbose)?
 
 	# Verify both runs captured the output correctly
 	result_pass_quiet = results_quiet.find_first(|r| r.name.contains("verbose_pass"))
