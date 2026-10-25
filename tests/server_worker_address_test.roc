@@ -17,8 +17,7 @@ stub_hooks = |env| {
 	spawn!: |_cmd| Ok(FakeChild),
 	close!: |_child| Ok({}),
 	poll!: |_child| Ok(Running),
-	http_send!: |_request, _options| Ok(Answered),
-	send_options: {},
+	http_send!: |_request| Ok(Answered),
 	sleep!: |_millis| Ok({}),
 }
 

@@ -27,8 +27,10 @@ hooks = {
 	poll!: Cmd.Child.poll!,
 	close!: Cmd.Child.close!,
 	env_var!: Env.var_str!,
-	http_send!: Http.send!,
-	send_options: Http.SendOptions.{},
+	# WORKAROUND: a lambda rather than `Http.send!` itself, because roc-spec
+	# passing a bare `{}` as its `SendOptions` crashes Roc 54283d4. Pass
+	# `Http.send!` once roc-lang/roc#12606 is fixed.
+	http_send!: |request| Http.send!(request, {}),
 	sleep!: Sleep.millis!,
 }
 

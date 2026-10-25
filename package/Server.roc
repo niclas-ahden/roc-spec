@@ -11,8 +11,8 @@
 ## Roc has no parameterized modules, so these functions take a
 ## `PlatformHooks` record of platform functions as their first argument, the
 ## same one `Spec` takes (see `Spec` for the whole record). `Server` uses
-## `os_str`, `spawn!`, `poll!`, `close!`, `env_var!`, `http_send!`,
-## `send_options` and `sleep!`:
+## `os_str`, `spawn!`, `poll!`, `close!`, `env_var!`, `http_send!` and
+## `sleep!`:
 ##
 ## ```roc
 ## main! = |_|
@@ -356,5 +356,5 @@ spawn_server! = |hooks, cmd, port| {
 probe! = |hooks, url| {
 	http_send! = hooks.http_send!
 
-	http_send!(Request.from_method(GET)->Request.with_uri(url), hooks.send_options)
+	http_send!(Request.from_method(GET)->Request.with_uri(url))
 }

@@ -3,7 +3,7 @@
 ## Roc has no parameterized modules, so these functions take a
 ## `PlatformHooks` record of platform functions as their first argument, the
 ## same one `Spec` takes (see `Spec` for the whole record). `Wait` uses
-## `sleep!`, and `for_server!` also `http_send!` and `send_options`:
+## `sleep!`, and `for_server!` also `http_send!`:
 ##
 ## ```roc
 ## Wait.for_server!(hooks, "http://localhost:8000/health", {
@@ -97,7 +97,7 @@ Wait :: [].{
 					->Request.with_headers(config.headers.map(|(name, value)| { name, value }))
 					->Request.with_timeout(TimeoutMilliseconds(config.request_timeout_ms))
 
-			match http_send!(request, hooks.send_options) {
+			match http_send!(request) {
 				Ok(response) => {
 					status = Response.status(response)
 

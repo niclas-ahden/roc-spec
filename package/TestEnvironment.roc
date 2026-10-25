@@ -168,7 +168,7 @@ TestEnvironment :: [].{
 	## Returns `Err(HttpError(status, url, body_preview))` for non-2xx status
 	## codes, and `Err(InvalidUrl(url))` for a URL that does not parse.
 	##
-	## Hooks used: `http_send!` and `send_options`.
+	## Hooks used: `http_send!`.
 	##
 	## ```roc
 	## body = TestEnvironment.fetch!(hooks, "${worker_url}/api/users")?
@@ -193,7 +193,7 @@ TestEnvironment :: [].{
 				->Request.with_headers([{ name: "Host", value: authority }])
 				->Request.with_timeout(TimeoutMilliseconds(10000))
 
-		response = http_send!(request, hooks.send_options)?
+		response = http_send!(request)?
 		status = Response.status(response)
 		response_body = Response.body(response)
 		body = Str.from_utf8_lossy(response_body)
