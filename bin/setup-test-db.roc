@@ -9,8 +9,8 @@
 ## `psql` rather than using roc-pg, so that setting up the test database does
 ## not depend on the package the tests are testing.
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
-	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.4.0/6sKP47ivkLchhdvDMDe9ajVoiFPEP57ZgQoEy2WTDczX.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
+	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.4.1/3tFBYWq9eBxjJe9FZJLbuQtUaFBrz3ykK2QDooeFM9Fy.tar.zst",
 }
 
 import pf.Cmd
@@ -22,7 +22,7 @@ import db.DatabaseUrl
 
 main! = |_args| {
 	url =
-		Env.var_str!(OsStr.utf8("DATABASE_URL"))
+		Env.var_str!(OsStr.from_str("DATABASE_URL"))
 			? |_| MissingEnvVar("DATABASE_URL must be set, e.g. postgresql://user@localhost:5432/roc_spec_test")
 
 	config =
@@ -47,7 +47,7 @@ exists! = |config| {
 	# travels as a string literal, so double any quote it contains.
 	quoted = config.database.replace_each("'", "''")
 	output = psql!(config, "SELECT 1 FROM pg_database WHERE datname = '${quoted}'")?
-	Ok(output.stdout_utf8.trim() == "1")
+	Ok(output.trim() == "1")
 }
 
 ## Create the target database.
@@ -63,25 +63,28 @@ create! = |config| {
 ##
 ## `-t` and `-A` strip the header, padding and row count that `psql` prints by
 ## default, so a result is exactly the value and nothing else.
+psql! : DatabaseUrl.Config, Str => Try(Str, _)
 psql! = |config, sql| {
 	base =
-		Cmd.new(OsStr.utf8("psql"))
-			.args_str([
-				"--host=${config.host}",
-				"--port=${config.port.to_str()}",
-				"--username=${config.user}",
-				"--dbname=postgres",
-				"-tAc",
-				sql,
-			])
+		Cmd.new("psql")
+			.args(
+				[
+					"--host=${config.host}",
+					"--port=${config.port.to_str()}",
+					"--username=${config.user}",
+					"--dbname=postgres",
+					"-tAc",
+					sql,
+				].map(OsStr.from_str),
+			)
 
 	cmd =
 		match config.auth {
-			Password(password) => base.env_str("PGPASSWORD", password)
+			Password(password) => base.env("PGPASSWORD", OsStr.from_str(password))
 			NoPassword => base
 		}
 
-	match cmd.exec_output!() {
+	match cmd.capture!() {
 		Ok(output) => Ok(output)
 		Err(e) => {
 			Stderr.line!("psql failed: ${Str.inspect(e)}")?

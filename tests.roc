@@ -21,7 +21,7 @@
 ##
 ## Pass --fail-fast to stop at the first failing test.
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 }
 
 import pf.Cmd
@@ -63,15 +63,11 @@ main! = |os_args| {
 	# Bound here, above `use_systemd`, and not inlined into the `if` below.
 	# Either change makes the compiler call the unrelated `if use_systemd` an
 	# "unconditional condition", and one warning makes the whole run exit 2.
-	have_db_url = Env.var_str!(OsStr.utf8("DATABASE_URL")).is_ok()
+	have_db_url = Env.var_str!(OsStr.from_str("DATABASE_URL")).is_ok()
 
 	# systemd scope when available (ensures all descendant processes die with
 	# the test); fall back to a plain spawn in CI where no user session exists.
-	use_systemd =
-		Cmd.new(OsStr.utf8("systemctl"))
-			.args([OsStr.utf8("--user"), OsStr.utf8("show-environment")])
-			.exec_output!()
-			.is_ok()
+	use_systemd = succeeds!(Cmd.new("systemctl").args(["--user", "show-environment"]))
 
 	# The data dir is repo local (and gitignored) rather than under TMPDIR,
 	# where the roc interpreter's scratch cleanup can delete it mid-run.
@@ -252,19 +248,21 @@ start_pg! = |data| {
 	# little reaches stderr before the collector takes over is captured, so a
 	# server that dies at startup can say why; stdout is not worth keeping.
 	child =
-		Cmd.new(OsStr.utf8("postgres"))
-			.args_str([
-				"-D",
-				data,
-				"-p",
-				pg_port,
-				"-c",
-				"listen_addresses=127.0.0.1",
-				"-k",
-				data,
-				"-c",
-				"logging_collector=on",
-			])
+		Cmd.new("postgres")
+			.args(
+				[
+					"-D",
+					data,
+					"-p",
+					pg_port,
+					"-c",
+					"listen_addresses=127.0.0.1",
+					"-k",
+					data,
+					"-c",
+					"logging_collector=on",
+				].map(OsStr.from_str),
+			)
 			.stdout(Null)
 			.stderr(Capture)
 			.spawn_leashed!() ? |e| PgSpawnFailed(e)
@@ -298,16 +296,16 @@ wait_for_pg! = |child, attempts|
 	if attempts == 0 {
 		Err(PgNeverBecameReady)
 	} else {
-		match child.try_wait!() ? |e| PgPollFailed(e) {
-			[exit, ..] => Err(PgDiedAtStartup({
+		match child.poll!() ? |e| PgPollFailed(e) {
+			Finished(exit) => Err(PgDiedAtStartup({
 				status: exit.status,
-				stderr: Str.from_utf8_lossy(exit.stderr_bytes),
+				stderr: exit.stderr_utf8_lossy(),
 			}))
-			[] => {
+			Running => {
 				if pg_is_ready!() {
 					Ok({})
 				} else {
-					Sleep.millis!(50)
+					Sleep.millis!(50)?
 					wait_for_pg!(child, attempts - 1)
 				}
 			}
@@ -318,18 +316,19 @@ wait_for_pg! = |child, attempts|
 ## captured rather than inherited so the polling stays out of the suite's log.
 pg_is_ready! : () => Bool
 pg_is_ready! = ||
-	Cmd.new(OsStr.utf8("pg_isready"))
-		.args_str(["-h", "127.0.0.1", "-p", pg_port])
-		.exec_output!()
-		.is_ok()
+	succeeds!(Cmd.new("pg_isready").args(["-h", "127.0.0.1", "-p", pg_port].map(OsStr.from_str)))
 
 ## Whether `program` is on PATH and runnable.
 have_program! : Str => Bool
-have_program! = |program|
-	Cmd.new(OsStr.utf8(program))
-		.args([OsStr.utf8("--version")])
-		.exec_output!()
-		.is_ok()
+have_program! = |program| succeeds!(Cmd.new(OsStr.from_str(program)).args(["--version"]))
+
+## Whether a command runs and exits 0. Its output is captured and dropped.
+succeeds! : Cmd.Command => Bool
+succeeds! = |cmd|
+	match cmd.run!() {
+		Ok(output) => output.status == Exited(0)
+		Err(_) => Bool.False
+	}
 
 ## Run a command with stdio inherited, failing on a nonzero exit.
 must_run! : Str, List(Str) => Try({}, _)
@@ -348,13 +347,16 @@ roc_exit_code! = |arguments| exit_code!("roc", arguments, NoEnv)
 
 exit_code! : Str, List(Str), [SetEnv(Str, Str), NoEnv] => Try(I32, _)
 exit_code! = |program, arguments, extra_env| {
-	base = Cmd.new(OsStr.utf8(program)).args(arguments.map(OsStr.utf8))
+	base = Cmd.new(OsStr.from_str(program)).args(arguments.map(OsStr.from_str)).inherit_stdio()
 	cmd =
 		match extra_env {
-			SetEnv(key, value) => base.env_str(key, value)
+			SetEnv(key, value) => base.env(OsStr.from_str(key), OsStr.from_str(value))
 			NoEnv => base
 		}
-	cmd.exec_exit_code!()
+	match cmd.run!()?.status {
+		Exited(code) => Ok(code)
+		Signaled(signal) => Err(Signaled(signal))
+	}
 }
 
 ## The .roc files directly inside `dir` (directory listing order), each with

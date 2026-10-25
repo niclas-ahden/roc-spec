@@ -1,10 +1,11 @@
 app [main!] {
-	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.28.0/AP9SGT1yrhCKcFxKcoA5tBkNCM6ibBjBxcQGMTb6krev.tar.zst",
+	pf: platform "https://github.com/niclas-ahden/basic-cli/releases/download/0.30.0/6XAUy48Jp34GANurMrMf74DtF7NdpkhnqFLHE4gHNzJy.tar.zst",
 	spec: "../package/main.roc",
-	pg: "https://github.com/niclas-ahden/roc-pg/releases/download/0.2.0/EGCCBmR793d6wQJzX8aS9994n9nzz6dgMvhKuU6PqQ12.tar.zst",
-	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.4.0/6sKP47ivkLchhdvDMDe9ajVoiFPEP57ZgQoEy2WTDczX.tar.zst",
+	pg: "https://github.com/niclas-ahden/roc-pg/releases/download/0.5.0/3RhKioDLx8pWHv72xyu4Dc3U3xyWQiAokmBXyezbPSxr.tar.zst",
+	db: "https://github.com/niclas-ahden/roc-database-url/releases/download/0.4.1/3tFBYWq9eBxjJe9FZJLbuQtUaFBrz3ykK2QDooeFM9Fy.tar.zst",
 }
 
+import pf.Duration
 import pf.Env
 import pf.Random
 import pf.Stdout
@@ -14,7 +15,7 @@ import pg.Client
 import db.DatabaseUrl
 
 query! = |client, sql|
-	client.execute!(sql, []).map_ok(|_| {})
+	client.execute_unchecked!(sql, []).map_ok(|_| {})
 
 connect! = |{}| {
 	url = Env.var_str!("DATABASE_URL") ? |_| MissingEnvVar("DATABASE_URL must be set (e.g. postgresql://user:pass@localhost:5432/dbname)")
@@ -27,14 +28,14 @@ connect! = |{}| {
 			}
 			Client.connect!(
 				{
-					connect!: Tcp.connect!,
+					connect!: |host, port| Tcp.connect!(host, port, { connect_timeout: Duration.seconds(5), io_timeout: Duration.seconds(35) }),
 					random_u64!: Random.seed_u64!,
 					host: config.host,
 					port: config.port,
 					user: config.user,
 					database: config.database,
 					auth,
-					timeout_ms: 5000,
+					statement_timeout: Duration.seconds(30),
 				},
 			)
 		}
