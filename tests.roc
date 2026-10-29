@@ -296,7 +296,7 @@ wait_for_pg! = |child, attempts|
 	if attempts == 0 {
 		Err(PgNeverBecameReady)
 	} else {
-		match child.poll!() ? |e| PgPollFailed(e) {
+		match poll!(child) ? |e| PgPollFailed(e) {
 			Finished(exit) => Err(PgDiedAtStartup({
 				status: exit.status,
 				stderr: exit.stderr_utf8_lossy(),
@@ -311,6 +311,11 @@ wait_for_pg! = |child, attempts|
 			}
 		}
 	}
+
+## `Child.poll!`, called through a function of our own. Calling it directly and
+## using the child after the error check frees it in a dev build
+## (roc-lang/roc#12692).
+poll! = |child| child.poll!()
 
 ## Whether the throwaway server is accepting connections yet. The output is
 ## captured rather than inherited so the polling stays out of the suite's log.
